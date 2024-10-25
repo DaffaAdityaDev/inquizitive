@@ -460,7 +460,7 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
   }
 
   // Add keyboard event handler for the answer textarea
-  function handleKeyPress(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+  function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
     // If Enter is pressed without Shift (Shift+Enter allows multiline)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault() // Prevent newline
@@ -475,35 +475,6 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
     }
   }
 
-  // Add function to generate AI feedback
-  function generateAIFeedback(): string {
-    const feedback = {
-      verification: userAnswers.map(answer => ({
-        number: answer.number,
-        question: answer.question,
-        provided_answer: answer.provided_answer,
-        expected_answer: output?.questions.find(q => q.number === answer.number)?.expected_answer || "",
-        evaluation: "[AI feedback will appear here]",
-        grade: "🟡 Good"
-      }))
-    }
-
-    return `# Evaluation Results
-
-<thinking>
-[AI's evaluation process will appear here]
-</thinking>
-
-<reflection>
-[AI's overall assessment will appear here]
-</reflection>
-
-<output>
-\`\`\`json
-${JSON.stringify(feedback, null, 2)}
-\`\`\`
-</output>`
-  }
 
   // Add paste handler function
   async function handlePasteFeedback() {
@@ -514,7 +485,8 @@ ${JSON.stringify(feedback, null, 2)}
         description: "AI feedback has been successfully pasted.",
         duration: 2000,
       })
-    } catch (err) {
+    } catch (error) {
+      console.error("Error pasting from clipboard:", error);
       toast.error("Failed to paste", {
         description: "Please make sure you have content copied to your clipboard.",
         duration: 2000,
