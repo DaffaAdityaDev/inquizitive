@@ -496,7 +496,7 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
   }
 
   return (
-    <div className="max-w-full mx-auto p-4">
+    <div className="max-w-full mx-auto p-4 pt-0">
       <Card>
         <CardHeader className="flex justify-between items-center">
           <div className="flex flex-col">

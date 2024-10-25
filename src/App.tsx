@@ -1,17 +1,12 @@
 import QuestionConverter from './components/QuestionConverter'
+import Navbar from './components/Navbar'
 import './App.css'
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Question Converter
-          </h1>
-        </div>
-      </header>
-      <main>
+    <div className="min-h-screen">
+      <Navbar />
+      <main className=" mt-5">
         <QuestionConverter />
       </main>
     </div>
