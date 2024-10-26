@@ -101,6 +101,7 @@ function parseAIFeedback(feedback: string): ParsedFeedback[] {
 function cleanJsonString(str: string): string {
   return str
     // Remove control characters
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
     // Fix escaped quotes
     .replace(/\\"/g, '"')
@@ -184,14 +185,16 @@ You are an intelligent and meticulous AI assistant designed to create self-testi
 ## Example Structure
 
 ### User Input:
-\`\`\`
-Topic: ${topic}
-\`\`\`
+<user_input>
+Topic: react and software engineering concepts and best practices, coding challenges
+</user_input>
 
 ### Assistant Response:
-\`\`\`
+<assistant_response>
 
-\`\`\`html
+</assistant_response>
+
+<thinking>
 <thinking>
 To generate effective open-ended questions on "The Water Cycle," I need to identify the key components and processes involved, such as evaporation, condensation, precipitation, and collection. Additionally, I should consider the relationships between these processes, their significance in Earth's climate system, and their real-world applications. Incorporating questions that encourage detailed explanations and critical thinking will provide a comprehensive assessment.
 </thinking>
@@ -200,6 +203,8 @@ To generate effective open-ended questions on "The Water Cycle," I need to ident
 The identified areas cover the fundamental aspects of the water cycle, including both definitions and applications. Ensuring that questions require elaboration will help assess both basic and deeper understanding. It's important to vary the scope of the questions to cater to different cognitive levels.
 </reflection>
 
+<assistant_response>
+<output>
 <json>
 {
   "questions": [
@@ -211,6 +216,7 @@ The identified areas cover the fundamental aspects of the water cycle, including
       "number": 2,
       "question": "How to use UseState in React",
       "expected_answer": "
+      <code>
       import { useState } from 'react';
 
       function Example() {
@@ -225,6 +231,7 @@ The identified areas cover the fundamental aspects of the water cycle, including
       }
 
       export default Example;
+      </code>
       "
     },
     {
@@ -247,14 +254,16 @@ The identified areas cover the fundamental aspects of the water cycle, including
       "number": 6,
       "question": "implement lazy loading in react",
       "expected_answer": "to implement lazy loading in react, you can use the React.lazy function and Suspense component. wrap the component you want to lazy load in a React.lazy function and wrap it in a Suspense component. use the lazy function to import the component and the Suspense component to handle the loading state. this will improve the performance of your application by only loading the components that are needed when they are needed.
-      these are the steps:
+      these are the steps: "
+     
       1. import { lazy, Suspense } from 'react';
       2. create a function that returns a lazy loaded component
       3. use the lazy function to import the component
       4. wrap the lazy loaded component in a Suspense component
       5. use the imported component in your application
+  
       these are the code:
-      \`\`\`
+      <code>
       import { lazy, Suspense } from 'react';
 
       const LazyComponent = lazy(() => import('./LazyComponent'));
@@ -268,27 +277,26 @@ The identified areas cover the fundamental aspects of the water cycle, including
       }
 
       export default App;
-      \`\`\`
+      </code>
       "
     }
   ]
 }
 </json>
 </output>
-\`\`\`
-
+</assistant_response>
 ## Prompt Template
 
 Use the following template to generate your own self-testing questions based on any given topic.
 
 ### User Input:
-\`\`\`
-Topic: <Your Topic Here>
-\`\`\`
+<user_input>
+Topic: ${topic}
+</user_input>
 
 ### Assistant Response:
 
-\`\`\`html
+<assistant_response>
 <thinking>
 [Your detailed, step-by-step thought process in understanding the topic and formulating open-ended questions]
 </thinking>
@@ -321,12 +329,12 @@ Topic: <Your Topic Here>
 }
 </json>
 </output>
-\`\`\`
+</assistant_response>
 
 ### USER TOPIC
-\`\`\`json
-
-\`\`\`
+<user_input>
+${topic}
+</user_input>
 
 ## Guidelines for Effective Question Generation
 
@@ -384,11 +392,24 @@ By following this structured approach, you will create effective self-testing ma
       for (const pattern of patterns) {
         const match = prompt.match(pattern)
         if (match) {
-          const jsonMatch = match[0].match(/{[\s\S]*}/)
-          if (jsonMatch) {
-            // Clean the JSON string before parsing
-            const cleanedJson = cleanJsonString(jsonMatch[0].trim())
-            const parsed = JSON.parse(cleanedJson)
+          let jsonString = match[0]
+          // Remove any surrounding tags or code block markers
+          jsonString = jsonString.replace(/<\/?json>|<\/?output>|```json|```/g, '').trim()
+          
+          // Additional cleaning steps
+          jsonString = jsonString
+            .replace(/\\n/g, '\\n')
+            .replace(/\\'/g, "\\'")
+            .replace(/\\"/g, '\\"')
+            .replace(/\\&/g, '\\&')
+            .replace(/\\r/g, '\\r')
+            .replace(/\\t/g, '\\t')
+            .replace(/\\b/g, '\\b')
+            .replace(/\\f/g, '\\f')
+            .replace(/[\u0000-\u0019]+/g, '')
+          
+          try {
+            const parsed = JSON.parse(jsonString)
             
             // Validate the parsed data structure
             if (!parsed.questions || !Array.isArray(parsed.questions)) {
@@ -415,6 +436,9 @@ By following this structured approach, you will create effective self-testing ma
             }
             
             return parsed
+          } catch (parseError) {
+            console.error('Error parsing JSON:', parseError)
+            // Continue to the next pattern if parsing fails
           }
         }
       }
