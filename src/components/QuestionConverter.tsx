@@ -357,6 +357,8 @@ By following this structured approach, you will create effective self-testing ma
       })
       return
     }
+
+    console.log(getBasePrompt(topicInput))
     
     copyToClipboard(
       getBasePrompt(topicInput),
