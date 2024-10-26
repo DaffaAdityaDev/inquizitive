@@ -15,7 +15,10 @@ import {
   ModalBody,
   ModalFooter,
   useDisclosure,
-  Input
+  Input,
+  Chip,
+  Divider,
+  Switch
 } from "@nextui-org/react"
 import { Tabs, Tab } from "@nextui-org/react"
 import { toast } from "sonner"
@@ -24,6 +27,7 @@ interface Question {
   number: number
   question: string
   expected_answer: string
+  isCodeQuestion?: boolean // Add this field
 }
 
 interface QuestionData {
@@ -46,12 +50,72 @@ interface AIPromptTemplate {
   }[]
 }
 
+// Add new interface for parsed feedback
+interface ParsedFeedback {
+  number: number
+  question: string
+  provided_answer: string
+  expected_answer: string
+  evaluation: string
+  grade: string
+}
+
+// Add this type for consistent error messages
+type ErrorType = {
+  message: string;
+  type: 'parse' | 'validation' | 'quiz';
+}
+
+// Add function to parse AI feedback
+function parseAIFeedback(feedback: string): ParsedFeedback[] {
+  try {
+    // Update patterns to match both <json> and ```json formats
+    const patterns = [
+      /<json>([\s\S]*?)<\/json>/,
+      /```json\s*([\s\S]*?)```/
+    ]
+
+    for (const pattern of patterns) {
+      const match = feedback.match(pattern)
+      if (match) {
+        const jsonContent = JSON.parse(match[1].trim())
+        return jsonContent.verification || []
+      }
+    }
+
+    // If no matches found, try parsing the entire feedback as JSON
+    const jsonMatch = feedback.match(/{[\s\S]*}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      return parsed.verification || []
+    }
+
+    return []
+  } catch (error) {
+    console.error('Error parsing AI feedback:', error)
+    return []
+  }
+}
+
+// Add utility function to clean JSON string
+function cleanJsonString(str: string): string {
+  return str
+    // Remove control characters
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+    // Fix escaped quotes
+    .replace(/\\"/g, '"')
+    // Fix newlines
+    .replace(/\n/g, '\\n')
+    // Fix tabs
+    .replace(/\t/g, '\\t')
+}
+
 function QuestionConverter() {
   const [promptInput, setPromptInput] = useState('')
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([])
   const [currentAnswer, setCurrentAnswer] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState<ErrorType | null>(null)
   const [output, setOutput] = useState<QuestionData | null>(null)
   const [isQuizMode, setIsQuizMode] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
@@ -60,6 +124,7 @@ function QuestionConverter() {
   const {isOpen, onOpen, onClose} = useDisclosure()
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false)
   const [topicInput, setTopicInput] = useState("")
+  const [isCodeMode, setIsCodeMode] = useState(false)
 
   // Update the tutorial steps with more detailed information
   const tutorialSteps = [
@@ -93,6 +158,8 @@ You are an intelligent and meticulous AI assistant designed to create self-testi
 
 1. **Understand the Input Topic**
    - Begin by thoroughly analyzing the provided topic to grasp its core concepts and key details.
+   - If use want Coding questions make question, if user want non-coding questions, make non-coding questions. if user want both, make both. 
+   - For Coding question, it should have code example or code snippets.
 
 2. **Iterative Thought Process with Structured Reasoning**
    - Use the following tags to organize your reasoning and output:
@@ -133,37 +200,80 @@ To generate effective open-ended questions on "The Water Cycle," I need to ident
 The identified areas cover the fundamental aspects of the water cycle, including both definitions and applications. Ensuring that questions require elaboration will help assess both basic and deeper understanding. It's important to vary the scope of the questions to cater to different cognitive levels.
 </reflection>
 
-\`\`\`json
+<json>
 {
   "questions": [
     {
       "number": 1,
-      "question": "Explain the process of evaporation and its role in the water cycle.",
-      "expected_answer": "A comprehensive explanation of how water changes from liquid to gas, the factors affecting evaporation, and its significance in the water cycle."
-    },
+      "question": "How to design secure applications",
+      "expected_answer": "make sure to use secure practices such as encryption, secure coding practices, and regular security audits. follow best practices for secure coding and implement security measures to protect sensitive data."
     {
       "number": 2,
-      "question": "Describe how condensation contributes to cloud formation.",
-      "expected_answer": "Details on how water vapor cools and changes back into liquid droplets, leading to cloud formation, including the conditions necessary for condensation."
+      "question": "How to use UseState in React",
+      "expected_answer": "
+      import { useState } from 'react';
+
+      function Example() {
+        const [count, setCount] = useState(0);
+
+        return (
+          <div>
+            <p>Count: {count}</p>
+            <button onClick={() => setCount(count + 1)}>Increment</button>
+          </div>
+        );
+      }
+
+      export default Example;
+      "
     },
     {
       "number": 3,
-      "question": "Discuss the impact of precipitation on Earth's ecosystems.",
-      "expected_answer": "An analysis of how precipitation distributes water across different regions, supports plant and animal life, and influences weather patterns."
+      "question": "How Improve Perfomance on db?",
+      "expected_answer": "for improving performance on db, you can use indexing, caching, and optimizing queries. use tools like EXPLAIN ANALYZE to identify and optimize slow queries. consider database tuning and schema optimization. sql queries should be optimized for performance and efficiency. 
+      nosql, redis, and other db should be optimized for performance and efficiency. like using caching mechanisms, indexing, and sharding."
     },
     {
       "number": 4,
-      "question": "How does the water cycle regulate Earth's climate?",
-      "expected_answer": "Explanation of the water cycle's role in temperature regulation, distribution of heat, and maintenance of climate stability."
+      "question": "how make sure frontend is performant?",
+      "expected_answer": "to make sure frontend is performant, you can use tools like react dev tools to identify and optimize slow queries. consider using server-side rendering, code-splitting, and lazy loading. use tools like react dev tools to identify and optimize slow queries. consider using server-side rendering, code-splitting, and lazy loading. use tools like react dev tools to identify and optimize slow queries. consider using server-side rendering, code-splitting, and lazy loading."
     },
     {
       "number": 5,
-      "question": "Analyze the effects of human activities on the natural water cycle.",
-      "expected_answer": "Discussion on how activities like deforestation, urbanization, and pollution disrupt the water cycle, leading to issues like reduced rainfall, increased runoff, and water contamination."
+      "question": "to make sure backend is performant?",
+      "expected_answer": "to make sure backend is performant, you can use tools like express dev tools to identify and optimize slow queries. consider using server-side rendering, code-splitting, and lazy loading. use tools like express dev tools to identify and optimize slow queries. consider using server-side rendering, code-splitting, and lazy loading. use tools like express dev tools to identify and optimize slow queries. consider using server-side rendering, code-splitting, and lazy loading."
+    },
+    {
+      "number": 6,
+      "question": "implement lazy loading in react",
+      "expected_answer": "to implement lazy loading in react, you can use the React.lazy function and Suspense component. wrap the component you want to lazy load in a React.lazy function and wrap it in a Suspense component. use the lazy function to import the component and the Suspense component to handle the loading state. this will improve the performance of your application by only loading the components that are needed when they are needed.
+      these are the steps:
+      1. import { lazy, Suspense } from 'react';
+      2. create a function that returns a lazy loaded component
+      3. use the lazy function to import the component
+      4. wrap the lazy loaded component in a Suspense component
+      5. use the imported component in your application
+      these are the code:
+      \`\`\`
+      import { lazy, Suspense } from 'react';
+
+      const LazyComponent = lazy(() => import('./LazyComponent'));
+
+      function App() {
+        return (
+          <Suspense fallback={<div>Loading...</div>}>
+            <LazyComponent />
+          </Suspense>
+        );
+      }
+
+      export default App;
+      \`\`\`
+      "
     }
   ]
 }
-\`\`\`
+</json>
 </output>
 \`\`\`
 
@@ -188,7 +298,7 @@ Topic: <Your Topic Here>
 </reflection>
 
 <output>
-\`\`\`json
+<json>
 {
   "questions": [
     {
@@ -209,7 +319,7 @@ Topic: <Your Topic Here>
     // Add more questions as needed
   ]
 }
-\`\`\`
+</json>
 </output>
 \`\`\`
 
@@ -261,64 +371,128 @@ By following this structured approach, you will create effective self-testing ma
     setIsTopicModalOpen(false)
   }
 
+  // Update extractJsonFromPrompt function
   function extractJsonFromPrompt(prompt: string): QuestionData | null {
     try {
-      // First try to find JSON within code block
-      const codeBlockRegex = /```json\s*([\s\S]*?)\s*```/
-      const codeBlockMatch = prompt.match(codeBlockRegex)
-      
-      if (codeBlockMatch) {
-        const jsonStr = codeBlockMatch[1].trim()
-        return JSON.parse(jsonStr)
-      }
+      const patterns = [
+        /<json>([\s\S]*?)<\/json>/,
+        /<output>[\s\S]*?{[\s\S]*?}[\s\S]*?<\/output>/,
+        /```json\s*([\s\S]*?)```/,
+        /{[\s\S]*"questions"[\s\S]*}/
+      ]
 
-      // If no code block found, try output tags
-      const outputMatch = prompt.match(/<output>([\s\S]*?)<\/output>/)
-      if (outputMatch) {
-        // Find the JSON object within the output tags
-        const jsonRegex = /\{[\s\S]*\}/
-        const jsonMatch = outputMatch[1].match(jsonRegex)
-        if (jsonMatch) {
-          return JSON.parse(jsonMatch[0])
+      for (const pattern of patterns) {
+        const match = prompt.match(pattern)
+        if (match) {
+          const jsonMatch = match[0].match(/{[\s\S]*}/)
+          if (jsonMatch) {
+            // Clean the JSON string before parsing
+            const cleanedJson = cleanJsonString(jsonMatch[0].trim())
+            const parsed = JSON.parse(cleanedJson)
+            
+            // Validate the parsed data structure
+            if (!parsed.questions || !Array.isArray(parsed.questions)) {
+              setError({
+                message: "Invalid format: Missing questions array",
+                type: 'parse'
+              })
+              return null
+            }
+            
+            // Validate each question has required fields
+            const isValidQuestions = parsed.questions.every((q: Question) => 
+              typeof q.number === 'number' && 
+              typeof q.question === 'string' && 
+              typeof q.expected_answer === 'string'
+            )
+
+            if (!isValidQuestions) {
+              setError({
+                message: "Invalid format: Questions must have number, question, and expected_answer fields",
+                type: 'parse'
+              })
+              return null
+            }
+            
+            return parsed
+          }
         }
       }
 
+      setError({
+        message: "No valid JSON found in prompt",
+        type: 'parse'
+      })
       return null
     } catch (error) {
+      let errorMessage = "Failed to parse JSON"
+      
+      if (error instanceof Error) {
+        // Provide more user-friendly error messages
+        if (error.message.includes("control character")) {
+          errorMessage = "Invalid characters in JSON. Please check for special characters or line breaks"
+        } else if (error.message.includes("Unexpected token")) {
+          errorMessage = "Invalid JSON format. Please check the syntax"
+        } else {
+          errorMessage = `JSON parsing error: ${error.message}`
+        }
+      }
+
+      setError({
+        message: errorMessage,
+        type: 'parse'
+      })
       console.error('Error parsing JSON:', error)
       return null
     }
   }
 
+  // Update handlePromptInput to show loading state
   function handlePromptInput(value: string) {
     setPromptInput(value)
-    setError('')
-    setUserAnswers([])
-    setCurrentQuestionIndex(0)
-    setIsCompleted(false)
+    setError(null)
+    
+    if (!value.trim()) {
+      setOutput(null)
+      return
+    }
 
-    const extractedData = extractJsonFromPrompt(value)
-    if (extractedData?.questions) {
-      setOutput(extractedData)
-    } else {
-      setError('Invalid prompt format or no questions found')
+    try {
+      const parsed = extractJsonFromPrompt(value)
+      if (parsed) {
+        setOutput(parsed)
+      }
+    } catch (error) {
+      console.error('Error in handlePromptInput:', error)
+      setError({
+        message: "Failed to process input",
+        type: 'parse'
+      })
     }
   }
 
   function handleStartQuiz() {
-    if (!output?.questions.length) {
-      setError('No questions loaded')
+    if (!output || !output.questions || output.questions.length === 0) {
+      setError({
+        message: "No valid questions found. Please check your prompt format.",
+        type: 'quiz'
+      })
       return
     }
-    setIsQuizMode(true)
+    
     setCurrentQuestionIndex(0)
     setUserAnswers([])
-    setIsCompleted(false)
+    setCurrentAnswer('')
+    setIsQuizMode(true)
+    setError(null)
   }
 
   function handleNextQuestion() {
     if (!currentAnswer.trim()) {
-      setError('Please provide an answer')
+      setError({
+        message: "Please provide an answer",
+        type: 'validation'
+      })
       return
     }
 
@@ -332,7 +506,7 @@ By following this structured approach, you will create effective self-testing ma
 
     setUserAnswers(prev => [...prev, newAnswer])
     setCurrentAnswer('')
-    setError('')
+    setError(null)
 
     if (currentQuestionIndex < output!.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1)
@@ -359,9 +533,9 @@ By following this structured approach, you will create effective self-testing ma
 
 Topic: ${promptTemplate.topic}
 Questions and Provided Answers:
-\`\`\`json
+<json>
 ${JSON.stringify(promptTemplate, null, 2)}
-\`\`\`
+</json>
 
 ## Evaluation Instructions
 
@@ -371,7 +545,7 @@ Please evaluate these answers and provide your response in proper markdown forma
    - Compare against expected answers
    - Assess accuracy, completeness, and clarity
    - Provide detailed feedback
-   - Grade using emojis (🟢 Excellent, 🟡 Good, 🔴 Needs Improvement)
+   - Grade using emojis (🟢 Excellent, 🟡 Good, 🔴 Needs Improvement) for each question Also include a grade NUMBER for the overall quiz
 
 2. **Required Response Format**
    Use these tags within your markdown response:
@@ -386,7 +560,9 @@ Please evaluate these answers and provide your response in proper markdown forma
    </reflection>
 
    <output>
+   <json>
    [Your detailed evaluation in JSON format]
+   </json>
    </output>
    \`\`\`
 
@@ -401,7 +577,7 @@ Please evaluate these answers and provide your response in proper markdown forma
         provided_answer: answer.provided_answer,
         expected_answer: output?.questions.find(q => q.number === answer.number)?.expected_answer || "",
         evaluation: "[This is where the AI would provide detailed feedback based on the answer.]",
-        grade: "[🟡 This is where the AI would provide Grade.]"
+        grade: "[🟡 This is where the AI would provide Grade. Example: Grade 2/10]"
       }))
     }
 
@@ -425,9 +601,9 @@ Overall assessment of the responses...
 </reflection>
 
 <output>
-\`\`\`json
+<json>
 ${JSON.stringify(simulatedAIEvaluation, null, 2)}
-\`\`\`
+</json>
 </output>
 \`\`\`
 
@@ -452,7 +628,7 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
     setCurrentQuestionIndex(0)
     setUserAnswers([])
     setCurrentAnswer('')
-    setError('')
+    setError(null)
     setOutput(null)
     setIsQuizMode(false)
     setIsCompleted(false)
@@ -461,10 +637,15 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
 
   // Add keyboard event handler for the answer textarea
   function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
-    // If Enter is pressed without Shift (Shift+Enter allows multiline)
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault() // Prevent newline
-      handleNextQuestion()
+    // In code mode, Enter creates new line. Otherwise, Enter submits
+    if (e.key === 'Enter') {
+      if (isCodeMode) {
+        // Let the default behavior happen (new line)
+        return
+      } else if (!e.shiftKey) {
+        e.preventDefault()
+        handleNextQuestion()
+      }
     }
   }
 
@@ -491,8 +672,28 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
         description: "Please make sure you have content copied to your clipboard.",
         duration: 2000,
       })
-      setError('Failed to paste from clipboard')
+      setError({
+        message: "Failed to paste from clipboard",
+        type: 'parse'
+      })
     }
+  }
+
+  // Add error display component
+  function ErrorDisplay({ error }: { error: ErrorType }) {
+    return (
+      <div 
+        className={`mb-4 p-3 rounded-medium ${
+          error.type === 'parse' ? 'bg-danger-50 dark:bg-danger-900/20' : 
+          error.type === 'validation' ? 'bg-warning-50 dark:bg-warning-900/20' : 
+          'bg-danger-50 dark:bg-danger-900/20'
+        }`}
+      >
+        <p className="text-danger dark:text-danger-500 text-small">
+          {error.message}
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -541,9 +742,7 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
               <Spacer y={4} />
               
               {error && (
-                <p className="text-danger mb-4" role="alert">
-                  {error}
-                </p>
+                <ErrorDisplay error={error} />
               )}
 
               <div className="flex gap-2">
@@ -552,6 +751,7 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
                     color="primary"
                     onClick={handleStartQuiz}
                     className="flex-1"
+                    isDisabled={!!error || !output}
                     aria-label="Start Answering Questions"
                   >
                     Start Answering Questions (Enter)
@@ -630,17 +830,55 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
                           </div>
                         }
                       >
-                        <div className="w-full">
+                        <div className="w-full space-y-4">
                           {!aiFeedback ? (
                             <div className="text-center p-4 text-default-500">
                               Click "Paste" to add AI feedback here
                             </div>
                           ) : (
-                            <Code className="w-full max-h-[500px] overflow-y-auto">
-                              <pre className="whitespace-pre-wrap text-sm p-4">
-                                {aiFeedback}
-                              </pre>
-                            </Code>
+                            <div className="space-y-4">
+                              {parseAIFeedback(aiFeedback).map((item, index) => (
+                                <Card key={index} className="border-1 border-default-200 bg-default-50">
+                                  <CardHeader className="flex gap-3">
+                                    <div className="flex flex-col">
+                                      <p className="text-md font-semibold">Question {item.number}</p>
+                                      <p className="text-small text-default-500">{item.question}</p>
+                                    </div>
+                                    <Chip
+                                      className="ml-auto"
+                                      color={item.grade.includes("🟢") ? "success" : 
+                                             item.grade.includes("🟡") ? "warning" : "danger"}
+                                      variant="flat"
+                                    >
+                                      Grade {item.grade}
+                                    </Chip>
+                                  </CardHeader>
+                                  <Divider className="opacity-50"/>
+                                  <CardBody>
+                                    <div className="space-y-4">
+                                      <div>
+                                        <p className="font-semibold mb-2 text-default-700">Your Answer:</p>
+                                        <p className="text-default-500 bg-default-100 p-3 rounded-medium">
+                                          {item.provided_answer}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold mb-2 text-default-700">Expected Answer:</p>
+                                        <p className="text-default-500 bg-default-100 p-3 rounded-medium">
+                                          {item.expected_answer}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold mb-2 text-default-700">Feedback:</p>
+                                        <p className="text-default-500 bg-default-100 p-3 rounded-medium">
+                                          {item.evaluation}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </CardBody>
+                                </Card>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </Tab>
@@ -666,25 +904,38 @@ ${JSON.stringify(simulatedAIEvaluation, null, 2)}
                   {output?.questions[currentQuestionIndex].question}
                 </p>
                 
+                {/* Add code mode toggle */}
+                <div className="flex items-center gap-2 mb-2">
+                  <Switch
+                    isSelected={isCodeMode}
+                    onValueChange={setIsCodeMode}
+                    size="sm"
+                  >
+                    Code Mode
+                  </Switch>
+                  <p className="text-small text-default-500">
+                    {isCodeMode 
+                      ? "Enter creates new line" 
+                      : "Enter submits answer (use Shift+Enter for new line)"}
+                  </p>
+                </div>
+                
                 <Textarea
                   label="Your Answer"
-                  placeholder="Type your answer here... (Press Enter to submit)"
+                  placeholder={isCodeMode 
+                    ? "Enter your code here... (Enter creates new line)" 
+                    : "Type your answer here... (Press Enter to submit)"
+                  }
                   value={currentAnswer}
                   onValueChange={setCurrentAnswer}
                   onKeyDown={handleKeyPress}
                   minRows={3}
                   aria-label={`Answer for question ${currentQuestionIndex + 1}`}
                 />
-                
-                <p className="text-small text-default-500 mt-2">
-                  Tip: Press Enter to submit, Shift+Enter for new line
-                </p>
               </div>
 
               {error && (
-                <p className="text-danger mb-4" role="alert">
-                  {error}
-                </p>
+                <ErrorDisplay error={error} />
               )}
 
               <Button

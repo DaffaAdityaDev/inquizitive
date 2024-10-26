@@ -5,6 +5,10 @@ import { SunIcon, MoonIcon } from "./Icons"
 export default function Navbar() {
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme')
+      if (savedTheme) {
+        return savedTheme === 'dark'
+      }
       return document.documentElement.classList.contains('dark')
     }
     return false
