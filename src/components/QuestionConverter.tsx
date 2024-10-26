@@ -97,19 +97,6 @@ function parseAIFeedback(feedback: string): ParsedFeedback[] {
   }
 }
 
-// Add utility function to clean JSON string
-function cleanJsonString(str: string): string {
-  return str
-    // Remove control characters
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
-    // Fix escaped quotes
-    .replace(/\\"/g, '"')
-    // Fix newlines
-    .replace(/\n/g, '\\n')
-    // Fix tabs
-    .replace(/\t/g, '\\t')
-}
 
 function QuestionConverter() {
   const [promptInput, setPromptInput] = useState('')
