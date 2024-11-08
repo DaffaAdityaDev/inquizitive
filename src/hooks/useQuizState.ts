@@ -34,6 +34,35 @@ export function useQuizState() {
     setError(null)
   }
 
+  const isQuestionAnswered = (index: number) => {
+    return userAnswers.some(answer => 
+      answer.number === output?.questions[index].number
+    )
+  }
+
+  const areAllQuestionsAnswered = () => {
+    if (!output?.questions) return false
+    return output.questions.every((_, index) => isQuestionAnswered(index))
+  }
+
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      // Save current answer if it exists
+      if (currentAnswer.trim()) {
+        handleSaveAnswer()
+      }
+      
+      const prevIndex = currentQuestionIndex - 1
+      setCurrentQuestionIndex(prevIndex)
+      
+      // Load previous answer if it exists
+      const prevAnswer = userAnswers.find(
+        answer => answer.number === output?.questions[prevIndex].number
+      )
+      setCurrentAnswer(prevAnswer?.provided_answer || '')
+    }
+  }
+
   const handleNextQuestion = () => {
     if (!currentAnswer.trim()) {
       setError({
@@ -51,24 +80,43 @@ export function useQuizState() {
       return
     }
 
+    handleSaveAnswer()
+
+    if (currentQuestionIndex < output.questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1
+      setCurrentQuestionIndex(nextIndex)
+      
+      // Load next answer if it exists
+      const nextAnswer = userAnswers.find(
+        answer => answer.number === output.questions[nextIndex].number
+      )
+      setCurrentAnswer(nextAnswer?.provided_answer || '')
+    } else if (areAllQuestionsAnswered()) {
+      setIsQuizMode(false)
+      setIsCompleted(true)
+    } else {
+      toast.error("Please answer all questions before completing", {
+        description: "You can use Previous/Next to navigate between questions",
+        duration: 3000,
+      })
+    }
+  }
+
+  const handleSaveAnswer = () => {
+    if (!output?.questions) return
+
     const currentQuestion = output.questions[currentQuestionIndex]
-    
     const newAnswer: UserAnswer = {
       number: currentQuestion.number,
       question: currentQuestion.question,
       provided_answer: currentAnswer
     }
 
-    setUserAnswers(prev => [...prev, newAnswer])
-    setCurrentAnswer('')
+    setUserAnswers(prev => {
+      const filtered = prev.filter(a => a.number !== newAnswer.number)
+      return [...filtered, newAnswer]
+    })
     setError(null)
-
-    if (currentQuestionIndex < output.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1)
-    } else {
-      setIsQuizMode(false)
-      setIsCompleted(true)
-    }
   }
 
   const handleReset = () => {
@@ -137,6 +185,9 @@ export function useQuizState() {
     handleKeyPress,
     handleKeyPressStart,
     getCurrentProgress,
-    copyToClipboard
+    copyToClipboard,
+    handlePreviousQuestion,
+    isQuestionAnswered,
+    areAllQuestionsAnswered
   }
 }

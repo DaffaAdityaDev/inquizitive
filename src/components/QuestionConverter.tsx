@@ -67,7 +67,8 @@ function QuestionConverter() {
     setIsTopicModalOpen,
     setIsCodeMode,
     setCurrentAnswer,
-    generateFinalOutput
+    generateFinalOutput,
+    handlePreviousQuestion
   } = useQuestionConverter()
 
   // Now userAnswers can be used in generateFinalOutput calls
@@ -321,18 +322,31 @@ function QuestionConverter() {
 
               {error && <ErrorDisplay error={error.message} />}
 
-              <Button
-                color="primary"
-                onClick={handleNextQuestion}
-                className="w-full"
-                aria-label={currentQuestionIndex < (output?.questions.length || 0) - 1 
-                  ? "Next Question" 
-                  : "Finish Quiz"}
-              >
-                {currentQuestionIndex < (output?.questions.length || 0) - 1 
-                  ? "Next Question" 
-                  : "Finish"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  color="primary"
+                  variant="flat"
+                  onClick={handlePreviousQuestion}
+                  isDisabled={currentQuestionIndex === 0}
+                  className="flex-1"
+                  aria-label="Previous Question"
+                >
+                  Previous
+                </Button>
+                
+                <Button
+                  color="primary"
+                  onClick={handleNextQuestion}
+                  className="flex-1"
+                  aria-label={currentQuestionIndex < (output?.questions.length || 0) - 1 
+                    ? "Next Question" 
+                    : "Finish Quiz"}
+                >
+                  {currentQuestionIndex < (output?.questions.length || 0) - 1 
+                    ? "Next" 
+                    : "Finish"}
+                </Button>
+              </div>
             </>
           )}
         </CardBody>

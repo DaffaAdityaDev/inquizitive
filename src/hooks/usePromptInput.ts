@@ -32,7 +32,7 @@ export function usePromptInput() {
             .replace(/\\t/g, '\\t')
             .replace(/\\b/g, '\\b')
             .replace(/\\f/g, '\\f')
-            .replace(/[\u0000-\u0019]+/g, '')
+            .replace(/[\\u0000-\\u0019]+/g, '')
           
           try {
             const parsed = JSON.parse(jsonString)
@@ -47,7 +47,7 @@ export function usePromptInput() {
             }
 
             // Validate each question
-            const isValid = parsed.questions.every((q: any) => 
+            const isValid = parsed.questions.every((q: Question) => 
               typeof q.number === 'number' &&
               typeof q.question === 'string' &&
               typeof q.expected_answer === 'string'
