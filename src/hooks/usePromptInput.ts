@@ -32,7 +32,7 @@ export function usePromptInput() {
             .replace(/\\t/g, '\\t')
             .replace(/\\b/g, '\\b')
             .replace(/\\f/g, '\\f')
-            .replace(/[\\u0000-\\u0019]+/g, '')
+            .replace(/[\u0000-\u0019]+/g, '')
           
           try {
             const parsed = JSON.parse(jsonString)
