@@ -3,14 +3,54 @@ import { useQuizState } from './useQuizState'
 import { usePromptInput } from './usePromptInput'
 import { useAIFeedback } from './useAIFeedback'
 import { useTutorialAndModals } from './useTutorialAndModals'
+import { useQuestionType } from './useQuestionType'
 import { toast } from 'sonner'
 
 export function useQuestionConverter() {
+  // Add questionType state
+  const {
+    selectedQuestionType,
+    handleQuestionTypeChange,
+    getPromptTemplate
+  } = useQuestionType()
+
   // Combine all the hooks
   const quizState = useQuizState()
   const promptInputState = usePromptInput()
   const aiFeedbackState = useAIFeedback()
   const tutorialState = useTutorialAndModals()
+
+  // Modify handleCopyBasePrompt to use the selected question type
+  const handleCopyBasePrompt = () => {
+    tutorialState.setIsTopicModalOpen(true)
+  }
+
+  const handleTopicSubmit = async () => {
+    if (!tutorialState.topicInput.trim()) {
+      toast.error("Please enter a topic", {
+        description: "The topic cannot be empty",
+        duration: 2000,
+      })
+      return
+    }
+
+    try {
+      const promptText = getPromptTemplate(tutorialState.topicInput)
+      await navigator.clipboard.writeText(promptText)
+      toast.success("Template copied!", {
+        description: "You can now paste this to your AI assistant",
+        duration: 2000,
+      })
+      tutorialState.setTopicInput("")
+      tutorialState.setIsTopicModalOpen(false)
+    } catch (error) {
+      console.error("Error copying template:", error)
+      toast.error("Failed to copy template", {
+        description: "Please try again or copy manually",
+        duration: 2000,
+      })
+    }
+  }
 
   // Watch for changes in promptInputState.output and update quizState
   useEffect(() => {
@@ -46,11 +86,13 @@ export function useQuestionConverter() {
     aiFeedbackState.setAIFeedback('')
   }
 
-  function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>, isCodeMode: boolean) {
     if (e.key === 'Enter') {
-      if (quizState.isCodeMode) {
+      if (isCodeMode || e.shiftKey) {
+        // In code mode or with shift key, allow new lines
         return
-      } else if (!e.shiftKey) {
+      } else {
+        // In normal mode without shift key, go to next question
         e.preventDefault()
         quizState.handleNextQuestion()
       }
@@ -93,6 +135,9 @@ export function useQuestionConverter() {
     ...aiFeedbackState,
     // Tutorial state
     ...tutorialState,
+    // Question type state
+    selectedQuestionType,
+    handleQuestionTypeChange,
     // Additional functions
     copyToClipboard,
     handleReset,
@@ -100,5 +145,9 @@ export function useQuestionConverter() {
     handleKeyPressStart,
     handlePasteFeedback,
     handlePromptInput,
+    handleCopyBasePrompt,
+    handleTopicSubmit,
+    isCodeMode: quizState.isCodeMode,
+    setIsCodeMode: quizState.setIsCodeMode
   }
 }

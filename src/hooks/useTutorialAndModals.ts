@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useDisclosure } from "@nextui-org/react"
 import { toast } from "sonner"
+import { PROMPT_TEMPLATES } from '../constants/prompts'
+import { QuestionType } from '../types'
 
 interface TutorialStep {
   title: string
@@ -11,6 +13,7 @@ export function useTutorialAndModals() {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false)
   const [topicInput, setTopicInput] = useState("")
+  const [selectedQuestionType, setSelectedQuestionType] = useState(QuestionType.OPEN_ENDED)
 
   const tutorialSteps: TutorialStep[] = [
     {
@@ -35,54 +38,6 @@ export function useTutorialAndModals() {
     }
   ]
 
-  const basePromptTemplate = (topic: string) => `
-# Self-Testing Prompt Generator for Open-Ended Questions
-
-You are an intelligent and meticulous AI assistant designed to create self-testing materials. Your goal is to generate questions that effectively assess understanding of: ${topic}
-
-## Instructions
-
-1. Begin by analyzing the topic thoroughly
-2. Generate both theoretical and practical questions
-3. For coding topics, include code examples and snippets
-4. Ensure questions encourage critical thinking
-
-Please structure your response using these tags:
-
-<thinking>
-[Your analysis of the ${topic} and key concepts to cover]
-</thinking>
-
-<reflection>
-[Your evaluation of the question quality and coverage]
-</reflection>
-
-<output>
-{
-  "questions": [
-    {
-      "number": 1,
-      "question": "What is the fundamental concept of ${topic}?",
-      "expected_answer": "A comprehensive explanation including key principles..."
-    },
-    {
-      "number": 2,
-      "question": "How would you implement ${topic} in a practical scenario?",
-      "expected_answer": "Step-by-step implementation guide with code examples if applicable..."
-    }
-  ]
-}
-</output>
-
-Guidelines:
-- Questions should encourage detailed explanations
-- Include both theoretical and practical aspects
-- For coding topics, include code examples
-- Ensure questions are clear and unambiguous
-- Provide comprehensive expected answers
-
-Please generate 3-5 questions following this format.`
-
   const handleCopyBasePrompt = () => {
     setIsTopicModalOpen(true)
   }
@@ -97,7 +52,10 @@ Please generate 3-5 questions following this format.`
     }
 
     try {
-      const promptText = basePromptTemplate(topicInput)
+      const promptText = selectedQuestionType === QuestionType.MULTIPLE_CHOICE
+        ? PROMPT_TEMPLATES.MULTIPLE_CHOICE(topicInput)
+        : PROMPT_TEMPLATES.OPEN_ENDED(topicInput)
+      
       await navigator.clipboard.writeText(promptText)
       toast.success("Template copied!", {
         description: "You can now paste this to your AI assistant",
@@ -130,6 +88,8 @@ Please generate 3-5 questions following this format.`
     tutorialSteps,
     handleCopyBasePrompt,
     handleTopicSubmit,
-    closeTopicModal
+    closeTopicModal,
+    selectedQuestionType,
+    setSelectedQuestionType
   }
 }

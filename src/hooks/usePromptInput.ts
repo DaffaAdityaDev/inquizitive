@@ -1,10 +1,25 @@
 import { useState } from 'react'
-import { QuestionData, ErrorType, Question } from '../types'
+import { QuestionData, ErrorType, Question, QuestionType, MultipleChoiceQuestion, OpenEndedQuestion } from '../types'
 
 export function usePromptInput() {
   const [promptInput, setPromptInput] = useState('')
   const [error, setError] = useState<ErrorType | null>(null)
   const [output, setOutput] = useState<QuestionData | null>(null)
+
+  const validateQuestion = (q: Question): boolean => {
+    const baseValid = 
+      typeof q.number === 'number' &&
+      typeof q.question === 'string'
+
+    if (q.type === QuestionType.MULTIPLE_CHOICE) {
+      return baseValid &&
+        Array.isArray((q as MultipleChoiceQuestion).options) &&
+        typeof (q as MultipleChoiceQuestion).correct_option === 'string' &&
+        typeof (q as MultipleChoiceQuestion).explanations === 'object'
+    }
+
+    return baseValid && typeof (q as OpenEndedQuestion).expected_answer === 'string'
+  }
 
   const extractJsonFromPrompt = (prompt: string): QuestionData | null => {
     try {
@@ -47,15 +62,11 @@ export function usePromptInput() {
             }
 
             // Validate each question
-            const isValid = parsed.questions.every((q: Question) => 
-              typeof q.number === 'number' &&
-              typeof q.question === 'string' &&
-              typeof q.expected_answer === 'string'
-            )
+            const isValid = parsed.questions.every((q: Question) => validateQuestion(q))
 
             if (!isValid) {
               setError({
-                message: "Each question must have 'number', 'question', and 'expected_answer' fields",
+                message: "Invalid question format. Check the structure matches the selected question type.",
                 type: 'structure'
               })
               return null
@@ -64,10 +75,8 @@ export function usePromptInput() {
             // Return validated question data
             return {
               questions: parsed.questions.map((q: Question) => ({
-                number: q.number,
-                question: q.question,
-                expected_answer: q.expected_answer,
-                isCodeQuestion: q.isCodeQuestion
+                ...q,
+                type: q.type || QuestionType.OPEN_ENDED // Default to open-ended if not specified
               }))
             }
           } catch (error) {

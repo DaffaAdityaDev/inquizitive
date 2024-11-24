@@ -1,11 +1,6 @@
 import { useState } from 'react'
-import { QuestionData, UserAnswer } from '../types'
+import { QuestionData, UserAnswer, QuestionType, ErrorType } from '../types'
 import { toast } from 'sonner'
-
-type ErrorType = {
-  message: string
-  type: 'parse' | 'validation' | 'quiz'
-}
 
 export function useQuizState() {
   // Core quiz state
@@ -63,42 +58,56 @@ export function useQuizState() {
     }
   }
 
-  const handleNextQuestion = () => {
-    if (!currentAnswer.trim()) {
-      setError({
-        message: "Please provide an answer",
-        type: 'validation'
-      })
-      return
-    }
-
-    if (!output?.questions) {
-      setError({
-        message: "No questions available",
-        type: 'quiz'
-      })
-      return
-    }
-
-    handleSaveAnswer()
-
-    if (currentQuestionIndex < output.questions.length - 1) {
-      const nextIndex = currentQuestionIndex + 1
-      setCurrentQuestionIndex(nextIndex)
-      
-      // Load next answer if it exists
-      const nextAnswer = userAnswers.find(
-        answer => answer.number === output.questions[nextIndex].number
-      )
-      setCurrentAnswer(nextAnswer?.provided_answer || '')
-    } else if (areAllQuestionsAnswered()) {
-      setIsQuizMode(false)
-      setIsCompleted(true)
+  const validateAnswer = (answer: string, questionType: QuestionType) => {
+    if (questionType === QuestionType.MULTIPLE_CHOICE) {
+      if (!answer.match(/^[A-D]\)/)) {
+        setError({
+          message: "Please select one of the provided options",
+          type: 'validation'
+        })
+        return false
+      }
     } else {
-      toast.error("Please answer all questions before completing", {
-        description: "You can use Previous/Next to navigate between questions",
-        duration: 3000,
-      })
+      if (!answer.trim()) {
+        setError({
+          message: "Please provide an answer",
+          type: 'validation'
+        })
+        return false
+      }
+    }
+    return true
+  }
+
+  const handleNextQuestion = () => {
+    if (!output?.questions) return
+
+    const currentQuestion = output.questions[currentQuestionIndex]
+    
+    if (!validateAnswer(currentAnswer, currentQuestion.type)) {
+      return
+    }
+
+    // Save the answer
+    setUserAnswers(prev => [
+      ...prev.filter(a => a.number !== currentQuestion.number),
+      {
+        number: currentQuestion.number,
+        question: currentQuestion.question,
+        provided_answer: currentAnswer,
+        type: currentQuestion.type,
+        questionType: currentQuestion.type
+      }
+    ])
+
+    // Move to next question or complete
+    if (currentQuestionIndex < output.questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1)
+      setCurrentAnswer('')
+      setError(null)
+    } else {
+      setIsCompleted(true)
+      setIsQuizMode(false)
     }
   }
 
@@ -109,7 +118,9 @@ export function useQuizState() {
     const newAnswer: UserAnswer = {
       number: currentQuestion.number,
       question: currentQuestion.question,
-      provided_answer: currentAnswer
+      provided_answer: currentAnswer,
+      type: currentQuestion.type,
+      questionType: currentQuestion.type
     }
 
     setUserAnswers(prev => {
@@ -129,11 +140,13 @@ export function useQuizState() {
     setIsCompleted(false)
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, isCodeMode: boolean) => {
     if (e.key === 'Enter') {
-      if (isCodeMode) {
+      if (isCodeMode || e.shiftKey) {
+        // In code mode or with shift key, allow new lines
         return
-      } else if (!e.shiftKey) {
+      } else {
+        // In normal mode without shift key, go to next question
         e.preventDefault()
         handleNextQuestion()
       }
