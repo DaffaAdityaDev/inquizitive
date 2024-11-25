@@ -92,10 +92,10 @@ export const PROMPT_TEMPLATES = {
           "D": "This is incorrect because... [explain why this related concept differs]"
         },
         "resources": [
-          "Official Documentation: [specific link to relevant section]",
-          "Tutorial: [specific tutorial addressing this concept]",
-          "Practice: [link to relevant exercises]",
-          "Common Use Cases: [link to real-world examples]"
+          "[Official Documentation]: [Lists and Keys in React](https://www.typescriptlang.org/docs/handbook/functions.html)",
+          "[Tutorial]: [Understanding React Keys](https://www.typescriptlang.org/docs/handbook/functions.html)",
+          "[Practice]: [Dynamic Lists Implementation](https://www.typescriptlang.org/play)",
+          "[Common Use Cases]: [Real-world List Rendering](https://www.typescriptlang.org/docs/handbook/type-checking-javascript-files.html)"
         ]
       }
     ]

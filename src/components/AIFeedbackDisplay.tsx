@@ -5,6 +5,32 @@ interface AIFeedbackDisplayProps {
   feedback: ParsedFeedback[]
 }
 
+const parseResourceString = (resource: string): { displayText: string; url: string | null } => {
+  // Match URL pattern inside parentheses or a plain URL
+  const urlMatch = resource.match(/\[(.*?)\]\((https?:\/\/.*?)\)/) || 
+                  resource.match(/(https?:\/\/\S+)/)
+  
+  if (urlMatch) {
+    // If it's in markdown format [text](url)
+    if (urlMatch[2]) {
+      return {
+        displayText: resource,
+        url: urlMatch[2]
+      }
+    }
+    // If it's a plain URL
+    return {
+      displayText: resource,
+      url: urlMatch[1]
+    }
+  }
+  
+  return {
+    displayText: resource,
+    url: null
+  }
+}
+
 export function AIFeedbackDisplay({ feedback }: AIFeedbackDisplayProps) {
   if (!feedback.length) return null
 
@@ -106,18 +132,29 @@ export function AIFeedbackDisplay({ feedback }: AIFeedbackDisplayProps) {
               <div>
                 <p className="font-medium mb-2">Resources:</p>
                 <div className="space-y-2">
-                  {item.resources.map((resource, idx) => (
-                    <a
-                      key={idx}
-                      href={resource}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block bg-default-50 dark:bg-default-100 p-3 rounded-lg
-                        text-primary hover:text-primary-600 transition-colors"
-                    >
-                      {resource}
-                    </a>
-                  ))}
+                  {item.resources.map((resource, idx) => {
+                    const { displayText, url } = parseResourceString(resource)
+                    
+                    return url ? (
+                      <a
+                        key={idx}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block bg-default-50 dark:bg-default-100 p-3 rounded-lg
+                          text-primary hover:text-primary-600 transition-colors"
+                      >
+                        {displayText}
+                      </a>
+                    ) : (
+                      <div
+                        key={idx}
+                        className="block bg-default-50 dark:bg-default-100 p-3 rounded-lg"
+                      >
+                        {displayText}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

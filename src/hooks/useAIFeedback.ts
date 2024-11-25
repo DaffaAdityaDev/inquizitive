@@ -60,7 +60,7 @@ export function useAIFeedback() {
         const match = feedback.match(pattern)
         if (match) {
           const jsonContent = JSON.parse(match[1].trim())
-          return (jsonContent.verification || jsonContent.responses || []).map((item: any) => ({
+          return (jsonContent.verification || jsonContent.responses || []).map((item: ParsedFeedback) => ({
             number: item.number,
             question: item.question,
             provided_answer: item.provided_answer,
@@ -190,9 +190,10 @@ ${JSON.stringify(promptTemplate, null, 2)}
       "grade": "Grade [0-100]/100 [emoji grade]",
       "expected_answer": [expected answer]`}
       "resources": [
-        "Relevant documentation link",
-        "Tutorial link",
-        "Practice exercises"
+        "[Official Documentation]: [TypeScript Functions](https://www.typescriptlang.org/docs/handbook/functions.html)",
+        "[Tutorial]: [Understanding Function Types](https://www.typescriptlang.org/docs/handbook/functions.html)",
+        "[Practice]: [TypeScript Functions Exercises](https://www.typescriptlang.org/play)",
+        "[Common Use Cases]: [Function Types in TypeScript](https://www.typescriptlang.org/docs/handbook/type-checking-javascript-files.html)"
       ]
     }
   ]
