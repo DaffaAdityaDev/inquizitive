@@ -30,8 +30,10 @@ interface ParsedFeedback {
   number: number
   question: string
   provided_answer: string
+  type: QuestionType
   expected_answer?: string
   correct_option?: string
+  options?: string[]
   evaluation: string
   grade: string
   resources?: string[] 
