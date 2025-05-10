@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { QuestionType } from '../types'
@@ -51,18 +52,66 @@ export function useAIFeedback() {
   const [error, setError] = useState<ErrorType | null>(null)
 
   function parseAIFeedback(feedback: string): ParsedFeedback[] {
+    console.log("[parseAIFeedback] Received feedback string:", feedback);
     try {
-      const patterns = [
-        /<json>([\s\S]*?)<\/json>/,
-        /```json\s*([\s\S]*?)```/,
-        /<output>[\s\S]*?<json>([\s\S]*?)<\/json>[\s\S]*?<\/output>/
-      ]
+      const outputJsonPattern = /<output>\s*<json>([\s\S]*?)<\/json>\s*<\/output>/;
+      const outputJsonMatch = feedback.match(outputJsonPattern);
 
-      for (const pattern of patterns) {
+      console.log("[parseAIFeedback] outputJsonPattern match result:", outputJsonMatch);
+
+      if (outputJsonMatch && outputJsonMatch[1]) {
+        const jsonContent = JSON.parse(outputJsonMatch[1].trim());
+        const result = (jsonContent.verification || jsonContent.responses || []).map((item: any) => ({
+          number: item.number,
+          question: item.question,
+          provided_answer: item.provided_answer,
+          expected_answer: item.expected_answer,
+          correct_option: item.correct_option,
+          evaluation: item.evaluation,
+          grade: item.grade,
+          resources: item.resources,
+          explanations: item.explanations,
+          options: item.options,
+          type: item.type || (item.correct_option ? QuestionType.MULTIPLE_CHOICE : QuestionType.OPEN_ENDED)
+        }));
+        return result;
+      }
+
+      // Fallback to existing patterns for backward compatibility
+      const fallbackPatterns = [
+        /<json>([\s\S]*?)<\/json>/,         // Simple <json> tag
+        /```json\s*([\s\S]*?)```/,       // JSON within markdown code block
+      ];
+
+      for (const pattern of fallbackPatterns) {
         const match = feedback.match(pattern)
         if (match) {
           const jsonContent = JSON.parse(match[1].trim())
-          return (jsonContent.verification || jsonContent.responses || []).map((item: ParsedFeedback) => ({
+          if (jsonContent.verification || jsonContent.responses) {
+            const result = (jsonContent.verification || jsonContent.responses).map((item: any) => ({
+              number: item.number,
+              question: item.question,
+              provided_answer: item.provided_answer,
+              expected_answer: item.expected_answer,
+              correct_option: item.correct_option,
+              evaluation: item.evaluation,
+              grade: item.grade,
+              resources: item.resources,
+              explanations: item.explanations,
+              options: item.options,
+              type: item.type || (item.correct_option ? QuestionType.MULTIPLE_CHOICE : QuestionType.OPEN_ENDED)
+            }));
+            console.log(`[parseAIFeedback] Mapped result from fallback '${pattern.source}':`, result);
+            return result;
+          }
+        }
+      }
+
+      const jsonMatch = feedback.match(/{[\s\S]*}/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        if (parsed.verification || parsed.responses) {
+          const result = (parsed.verification || parsed.responses).map((item: any) => ({
             number: item.number,
             question: item.question,
             provided_answer: item.provided_answer,
@@ -73,15 +122,11 @@ export function useAIFeedback() {
             resources: item.resources,
             explanations: item.explanations,
             options: item.options,
-            type: item.type
-          }))
+            type: item.type || (item.correct_option ? QuestionType.MULTIPLE_CHOICE : QuestionType.OPEN_ENDED)
+          }));
+          console.log("[parseAIFeedback] Mapped result from parsing entire string:", result);
+          return result;
         }
-      }
-
-      const jsonMatch = feedback.match(/{[\s\S]*}/)
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0])
-        return (parsed.verification || parsed.responses || [])
       }
 
       return []

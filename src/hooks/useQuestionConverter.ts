@@ -1,12 +1,21 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuizState } from './useQuizState'
 import { usePromptInput } from './usePromptInput'
 import { useAIFeedback } from './useAIFeedback'
 import { useTutorialAndModals } from './useTutorialAndModals'
 import { useQuestionType } from './useQuestionType'
 import { toast } from 'sonner'
+import { generateTemplate } from '../services/geminiService'
+import { useModelContext } from '../context/ModelContext'
+import { QuestionType } from '../types'
 
 export function useQuestionConverter() {
+  // Model selection from context
+  const { selectedModel } = useModelContext()
+  // State for direct AI generation of question templates
+  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false)
+  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false)
+
   // Add questionType state
   const {
     selectedQuestionType,
@@ -49,6 +58,43 @@ export function useQuestionConverter() {
         description: "Please try again or copy manually",
         duration: 2000,
       })
+    }
+  }
+
+  /**
+   * Generate the question template directly via the Gemini API
+   */
+  async function handleGenerateTemplate() {
+    if (!tutorialState.topicInput.trim()) {
+      toast.error("Please enter a topic", { description: "The topic cannot be empty", duration: 2000 })
+      return
+    }
+    setIsGeneratingTemplate(true)
+    try {
+      const basePrompt = getPromptTemplate(tutorialState.topicInput)
+      console.log("handleGenerateTemplate: sending prompt to Gemini:", basePrompt)
+      const aiResponse = await generateTemplate(basePrompt, selectedModel)
+      // Update the prompt input and derived output
+      promptInputState.setPromptInput(aiResponse)
+      const parsed = promptInputState.handlePromptInput(aiResponse)
+      if (parsed) {
+        quizState.setOutput(parsed)
+        tutorialState.setTopicInput("")
+        tutorialState.setIsTopicModalOpen(false)
+        toast.success("Template generated!", { description: "Questions generated successfully", duration: 2000 })
+      } else {
+        toast.error("Failed to parse AI response", { description: "Please try again" })
+      }
+    } catch (error) {
+      console.error("Error generating template:", error)
+      // Show the actual error message to the user for debugging
+      const errMsg = error instanceof Error ? error.message : JSON.stringify(error)
+      toast.error("Failed to generate template", {
+        description: errMsg,
+        duration: 4000,
+      })
+    } finally {
+      setIsGeneratingTemplate(false)
     }
   }
 
@@ -126,6 +172,29 @@ export function useQuestionConverter() {
     }
   }
 
+  /**
+   * Generate feedback evaluation directly via the Gemini API
+   */
+  async function handleGenerateFeedback() {
+    if (!quizState.userAnswers.length || !quizState.output) {
+      toast.error('No answers available to evaluate')
+      return
+    }
+    setIsGeneratingFeedback(true)
+    try {
+      const evalPrompt = aiFeedbackState.generateAIPrompt(quizState.userAnswers.map(a => ({ ...a, type: a.questionType || QuestionType.OPEN_ENDED })), quizState.output)
+      const aiResponse = await generateTemplate(evalPrompt, selectedModel)
+      aiFeedbackState.setAIFeedback(aiResponse)
+      toast.success('Feedback generated!', { description: 'AI evaluation completed', duration: 2000 })
+    } catch (error) {
+      console.error('Error generating feedback:', error)
+      const errMsg = error instanceof Error ? error.message : JSON.stringify(error)
+      toast.error('Failed to generate feedback', { description: errMsg, duration: 4000 })
+    } finally {
+      setIsGeneratingFeedback(false)
+    }
+  }
+
   return {
     // Quiz state
     ...quizState,
@@ -147,7 +216,11 @@ export function useQuestionConverter() {
     handlePromptInput,
     handleCopyBasePrompt,
     handleTopicSubmit,
+    handleGenerateTemplate,
+    isGeneratingTemplate,
     isCodeMode: quizState.isCodeMode,
-    setIsCodeMode: quizState.setIsCodeMode
+    setIsCodeMode: quizState.setIsCodeMode,
+    handleGenerateFeedback,
+    isGeneratingFeedback
   }
 }

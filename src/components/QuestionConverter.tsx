@@ -67,7 +67,11 @@ function QuestionConverter() {
     copyToClipboard,
     handleCopyBasePrompt,
     handleTopicSubmit,
+    handleGenerateTemplate,
+    isGeneratingTemplate,
     handlePasteFeedback,
+    handleGenerateFeedback,
+    isGeneratingFeedback,
     setTopicInput,
     setIsTopicModalOpen,
     setIsCodeMode,
@@ -198,6 +202,18 @@ function QuestionConverter() {
                         title={
                           <div className="flex items-center gap-2">
                             AI Feedback
+                            <Button
+                              size="sm"
+                              variant="flat"
+                              color="secondary"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleGenerateFeedback()
+                              }}
+                              isDisabled={isGeneratingFeedback || !userAnswers.length || !output}
+                            >
+                              {isGeneratingFeedback ? 'Generating...' : 'Generate'}
+                            </Button>
                             <Button
                               size="sm"
                               variant="flat"
@@ -379,6 +395,14 @@ function QuestionConverter() {
               <ModalFooter>
                 <Button color="danger" variant="light" onPress={onClose}>
                   Cancel
+                </Button>
+                <Button
+                  variant="flat"
+                  color="secondary"
+                  onPress={handleGenerateTemplate}
+                  isDisabled={isGeneratingTemplate}
+                >
+                  {isGeneratingTemplate ? 'Generating...' : 'Generate Questions'}
                 </Button>
                 <Button color="primary" onPress={handleTopicSubmit}>
                   Copy Template

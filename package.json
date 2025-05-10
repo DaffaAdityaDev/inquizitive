@@ -11,6 +11,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@google/genai": "^0.13.0",
     "@nextui-org/divider": "^2.0.32",
     "@nextui-org/react": "^2.4.8",
     "@nextui-org/system": "^2.2.6",
@@ -19,6 +20,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sonner": "^1.5.0",
+    "swr": "^2.3.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {
