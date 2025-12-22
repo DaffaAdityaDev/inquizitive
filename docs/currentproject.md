@@ -1,154 +1,169 @@
-# Inquizitive v2 - Learning & Quiz Application
+# Inquizitive - Question Converter & Quiz Application
 
 ## Overview
 
-**Inquizitive v2** is a Next.js-based web application currently in early development. The project is designed to be a comprehensive learning and quiz application that will help users create, manage, and take interactive quizzes with AI-powered features. This documentation reflects the current state of the project as a fresh Next.js setup.
+**Inquizitive** is a React-based web application designed to help users create, manage, and take interactive quizzes. The application integrates with Google's Gemini AI API to generate educational questions and provide intelligent feedback on user answers. It supports both open-ended and multiple-choice question types, making it suitable for various learning scenarios.
 
-## Current Project Status
+## Core Functionality
 
-**Status**: Initial Setup Phase  
-**Version**: 0.1.0  
-**Last Updated**: Project initialization
+### 1. Question Generation
+- **AI-Powered Question Creation**: Uses Google Gemini API to generate questions based on user-provided topics
+- **Question Types**: Supports two question formats:
+  - **Open-Ended Questions**: Require detailed written responses with expected answers
+  - **Multiple Choice Questions**: Provide 4 options (A, B, C, D) with detailed explanations for each option
+- **Template System**: Includes structured prompt templates that guide AI to generate high-quality educational questions
 
-The project is currently a minimal Next.js starter template and is being prepared for development of the full Inquizitive application.
+### 2. Quiz Mode
+- **Interactive Quiz Interface**: Users can answer questions one at a time
+- **Progress Tracking**: Visual progress bar shows completion status
+- **Navigation**: Users can move between questions (Previous/Next buttons)
+- **Code Mode**: Special mode for open-ended questions that allows code input with syntax highlighting
+- **Answer Collection**: Stores all user answers for later evaluation
+
+### 3. AI Feedback System
+- **Answer Evaluation**: Generates detailed feedback on user answers using AI
+- **Grading**: Provides grades and evaluations for each answer
+- **Learning Resources**: Includes relevant documentation links, tutorials, and practice exercises
+- **Detailed Explanations**: For multiple-choice questions, explains why each option is correct or incorrect
+
+### 4. Model Management
+- **Dynamic Model Selection**: Fetches available Gemini models from the API
+- **Model Switching**: Users can select different AI models for question generation and feedback
+- **Default Configuration**: Uses `gemini-2.0-flash` as default, configurable via environment variables
 
 ## Technical Architecture
 
 ### Technology Stack
+- **Frontend Framework**: React 18.3 with TypeScript
+- **Build Tool**: Vite 5.4
+- **UI Library**: NextUI 2.4 (React component library)
+- **Styling**: Tailwind CSS 3.4
+- **State Management**: React Context API + Custom Hooks
+- **Data Fetching**: SWR 2.3 for data fetching and caching
+- **API Integration**: Google Gemini Generative AI API (`@google/genai`)
+- **Notifications**: Sonner (toast notifications)
+- **Animations**: Framer Motion 11.11
+- **Validation**: Zod 3.23 for schema validation
 
-- **Framework**: Next.js 16.1.0 (App Router)
-- **React Version**: 19.2.3
-- **TypeScript**: ^5
-- **Styling**: Tailwind CSS ^4
-- **PostCSS**: @tailwindcss/postcss ^4
-- **Linting**: ESLint ^9 with eslint-config-next
-
-### Current Project Structure
+### Project Structure
 
 ```
-inquizitive-v2/
-├── app/                    # Next.js App Router directory
-│   ├── favicon.ico         # Site favicon
-│   ├── globals.css         # Global styles with Tailwind
-│   ├── layout.tsx          # Root layout component
-│   └── page.tsx            # Home page component
-├── docs/                   # Project documentation
-│   ├── currentproject.md   # This file
-│   └── newfeature.md       # Future features & architecture plans
-├── public/                 # Static assets
-│   ├── file.svg
-│   ├── globe.svg
-│   ├── next.svg
-│   ├── vercel.svg
-│   └── window.svg
-├── .gitignore             # Git ignore rules
-├── eslint.config.mjs      # ESLint configuration
-├── next.config.ts         # Next.js configuration
-├── package.json           # Dependencies and scripts
-├── postcss.config.mjs     # PostCSS configuration
-├── README.md              # Default Next.js README
-└── tsconfig.json          # TypeScript configuration
+src/
+├── components/          # React components
+│   ├── QuestionConverter.tsx    # Main application component
+│   ├── Navbar.tsx               # Navigation bar with theme toggle
+│   ├── QuestionInput.tsx        # Question input interface
+│   ├── MultipleChoiceInput.tsx  # Multiple choice question UI
+│   ├── AIFeedbackDisplay.tsx    # Feedback visualization
+│   └── ErrorDisplay.tsx         # Error handling UI
+├── context/            # React Context providers
+│   └── ModelContext.tsx         # Model selection state management
+├── hooks/              # Custom React hooks
+│   ├── useQuestionConverter.ts  # Main business logic hook
+│   ├── useQuizState.ts          # Quiz state management
+│   ├── useAIFeedback.ts         # AI feedback handling
+│   ├── useQuestionType.ts       # Question type management
+│   └── usePromptInput.ts        # Prompt input handling
+├── services/           # API services
+│   ├── api.ts                   # Base API service
+│   ├── geminiService.ts         # Gemini API integration
+│   └── questionService.ts       # Question processing
+├── types/              # TypeScript type definitions
+│   ├── index.ts                 # Core types (Question, UserAnswer, etc.)
+│   └── api.ts                   # API response types
+├── constants/           # Application constants
+│   └── prompts.ts               # AI prompt templates
+└── utils/              # Utility functions
+    ├── extractJsonFromPrompt.ts # JSON extraction from AI responses
+    ├── parseAIFeedback.ts       # Feedback parsing
+    └── errorUtils.ts            # Error handling utilities
 ```
 
-### Key Configuration Details
+### Key Features Implementation
 
-#### TypeScript Configuration
-- **Target**: ES2017
-- **Module Resolution**: bundler (Next.js optimized)
-- **JSX**: react-jsx
-- **Path Aliases**: `@/*` maps to project root
-- **Strict Mode**: Enabled
+#### 1. Question Type System
+- Enum-based type system (`OPEN_ENDED`, `MULTIPLE_CHOICE`)
+- Type-safe question structures with TypeScript discriminated unions
+- Dynamic prompt templates based on question type
 
-#### Next.js Configuration
-- Using App Router (default in Next.js 16)
-- TypeScript enabled
-- Default configuration (can be extended as needed)
+#### 2. State Management
+- Custom hooks pattern for separation of concerns
+- Context API for global state (model selection)
+- Local state for component-specific data
 
-#### Tailwind CSS
-- Version 4 (latest)
-- Configured via PostCSS
-- Global styles in `app/globals.css`
+#### 3. API Integration
+- RESTful API service wrapper
+- Environment variable configuration for API keys
+- Error handling and retry logic
+- Response parsing and validation
 
-### Current Components
+#### 4. User Experience
+- Dark/Light theme toggle (persisted in localStorage)
+- Keyboard shortcuts (Enter to submit, navigate)
+- Loading states and progress indicators
+- Toast notifications for user feedback
+- Modal dialogs for tutorials and topic input
 
-#### Root Layout (`app/layout.tsx`)
-- Sets up HTML structure
-- Configures Geist and Geist Mono fonts from Google Fonts
-- Applies global styles
-- Basic metadata configuration
+## Environment Configuration
 
-#### Home Page (`app/page.tsx`)
-- Default Next.js starter template
-- Demonstrates basic Tailwind styling
-- Dark mode support with dark: prefix classes
-- Responsive design patterns
+The application requires the following environment variables:
+
+- `VITE_GEMINI_API_KEY`: Google Gemini API key (required)
+- `VITE_GEMINI_MODEL`: Default Gemini model to use (optional, defaults to `gemini-2.0-flash`)
+
+## Usage Workflow
+
+1. **Generate Questions**:
+   - Select question type (Open-Ended or Multiple Choice)
+   - Click "Copy Base Prompt Template" to get a template
+   - Enter a topic in the modal
+   - Either copy the template to use with an external AI assistant, or generate questions directly using the "Generate Questions" button
+
+2. **Answer Questions**:
+   - Paste the AI-generated prompt (with `<output>` tags containing JSON) into the input field
+   - Click "Start Answering Questions"
+   - Answer each question in sequence
+   - Navigate between questions using Previous/Next buttons
+   - Complete the quiz
+
+3. **Get Feedback**:
+   - After completing the quiz, switch to the "AI Feedback" tab
+   - Generate feedback using the "Generate" button, or paste pre-generated feedback
+   - Review detailed evaluations, grades, and learning resources
 
 ## Development
 
 ### Available Scripts
+- `npm run dev`: Start development server
+- `npm run build`: Build for production
+- `npm run preview`: Preview production build
+- `npm run lint`: Run ESLint
+- `npm test`: Run tests with Vitest
 
-```bash
-npm run dev      # Start development server (localhost:3000)
-npm run build    # Build for production
-npm start        # Start production server
-npm run lint     # Run ESLint
-```
-
-### Getting Started
-
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-2. Run development server:
-   ```bash
-   npm run dev
-   ```
-
-3. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-### Environment Variables
-
-Currently no environment variables are required. Future features may require:
-- API keys for AI services (e.g., Google Gemini)
-- Database connection strings (e.g., Supabase)
-- Authentication credentials
-
-## Planned Features (See `docs/newfeature.md`)
-
-The project has extensive planning documentation for future features including:
-
-- **Neuro-Stack Architecture**: Spaced Repetition System (SRS) for optimal learning
-- **AI-Powered Question Generation**: Integration with AI models for quiz creation
-- **Hybrid Authentication**: Google OAuth and Email/Password support
-- **The Learning Flywheel**: Acquire → Filter → Retain → Reinforce cycle
-- **Advanced Learning Modes**: Feynman Technique, Generation Effect, Scenario-Based questions
-- **Gamification**: XP system, streaks, heatmap tracking
-
-## Next Steps
-
-1. **Database Setup**: Configure Supabase for user data and quiz storage
-2. **Authentication**: Implement hybrid auth (Google OAuth + Email/Password)
-3. **Core Quiz Features**: Build question input, quiz interface, and feedback system
-4. **SRS Implementation**: Add spaced repetition algorithm for review system
-5. **UI Components**: Create reusable components for quiz interface
+### Code Quality
+- TypeScript for type safety
+- ESLint for code linting
+- React Hooks linting rules
+- Error boundaries for graceful error handling
 
 ## Design Philosophy
 
-The project aims to follow these principles:
+The application follows these principles:
 
-1. **Type Safety**: Full TypeScript implementation
-2. **Modern React Patterns**: Utilizing React 19 features and App Router
-3. **Performance**: Optimized with Next.js built-in optimizations
-4. **Accessibility**: ARIA labels and semantic HTML
-5. **Responsive Design**: Mobile-first approach with Tailwind CSS
-6. **Developer Experience**: Clear structure and maintainable code
+1. **Type Safety**: Extensive use of TypeScript for compile-time error checking
+2. **Component Composition**: Modular, reusable components
+3. **Separation of Concerns**: Business logic in custom hooks, UI in components
+4. **User-Centric Design**: Intuitive interface with helpful tutorials and feedback
+5. **Accessibility**: ARIA labels and keyboard navigation support
+6. **Responsive Design**: Works across different screen sizes
 
-## Notes
+## Future Enhancements
 
-- This is an early-stage project
-- The application structure will evolve as features are added
-- Refer to `docs/newfeature.md` for detailed architecture and feature plans
-- The codebase currently contains minimal implementation beyond the starter template
+Potential areas for expansion:
+- Support for additional question types (True/False, Fill-in-the-blank)
+- Question bank and history management
+- Export/import functionality for quizzes
+- Collaborative features (sharing quizzes)
+- Analytics and progress tracking
+- Customizable themes and branding
 
