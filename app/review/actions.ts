@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { calculateSRS } from '@/utils/srsAlgorithm'
 import { ReviewItem } from '@/types'
 
-export async function getDueReviews() {
+export async function getDueReviews(subject: string = 'General') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
@@ -15,6 +15,7 @@ export async function getDueReviews() {
     .from('review_items')
     .select('*')
     .eq('user_id', user.id)
+    .eq('subject', subject)
     .lte('next_review_at', new Date().toISOString())
     .order('next_review_at', { ascending: true })
     .limit(20) // Limit to avoid overwhelming

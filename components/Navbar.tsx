@@ -7,6 +7,8 @@ import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { User } from '@supabase/supabase-js'
+import SubjectSelector from './SubjectSelector'
+
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -47,15 +49,18 @@ export default function Navbar() {
   ]
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-black/80 backdrop-blur-md">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="sticky top-0 z-50 w-full border-b border-white/5 glass">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
-            <span className="text-2xl">🧠</span>
-            <span className="hidden sm:inline">Inquizitive</span>
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight text-white group">
+              <span className="text-2xl group-hover:scale-110 transition-transform duration-200">🧠</span>
+              <span className="hidden sm:inline bg-clip-text text-transparent bg-linear-to-r from-white to-gray-400">Inquizitive</span>
+            </Link>
+            <SubjectSelector />
+          </div>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
@@ -63,10 +68,10 @@ export default function Navbar() {
               <Link
                 key={item.path}
                 href={item.path}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
                   isActive(item.path)
-                    ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-900'
+                    ? 'bg-white/10 text-white shadow-[0_0_10px_rgba(255,255,255,0.1)]'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <span className="mr-2">{item.icon}</span>
@@ -82,10 +87,10 @@ export default function Navbar() {
                 {/* Profile Link with Avatar */}
                 <Link
                   href="/profile"
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors ${
                     isActive('/profile')
-                      ? 'bg-gray-100 dark:bg-gray-800'
-                      : 'hover:bg-gray-50 dark:hover:bg-gray-900'
+                      ? 'bg-white/10 border border-white/5'
+                      : 'hover:bg-white/5 border border-transparent'
                   }`}
                 >
                   {user.user_metadata?.avatar_url ? (
@@ -94,14 +99,14 @@ export default function Navbar() {
                       alt="Avatar" 
                       width={32}
                       height={32}
-                      className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-700 object-cover"
+                      className="w-8 h-8 rounded-full border border-white/10 object-cover"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                    <div className="w-8 h-8 rounded-full bg-linear-to-br from-neon-blue to-neon-purple flex items-center justify-center text-white text-sm font-bold shadow-lg">
                       {(user.email?.charAt(0) || 'U').toUpperCase()}
                     </div>
                   )}
-                  <span className="hidden sm:inline text-sm font-medium">
+                  <span className="hidden sm:inline text-sm font-medium text-gray-200">
                     {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0] || 'Profile'}
                   </span>
                 </Link>
@@ -109,7 +114,7 @@ export default function Navbar() {
                 {/* Sign Out Button */}
                 <button 
                   onClick={handleSignOut}
-                  className="px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  className="px-3 py-2 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-950/30 rounded-full transition-colors"
                   title="Sign Out"
                 >
                   <span className="hidden sm:inline">Sign Out</span>
@@ -119,7 +124,7 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/login"
-                className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+                className="px-4 py-2 text-sm font-bold text-black bg-white hover:bg-gray-200 rounded-full transition-colors shadow-[0_0_15px_rgba(255,255,255,0.3)]"
               >
                 Login
               </Link>

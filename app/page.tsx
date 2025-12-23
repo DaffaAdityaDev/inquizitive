@@ -2,6 +2,10 @@ import Link from "next/link";
 import Heatmap from "@/components/Heatmap";
 import Tutorial from "@/components/Tutorial";
 import { getUserStats } from "./actions";
+import { HeroHighlight } from "@/components/ui/hero-highlight";
+import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
+import { Flame, Dumbbell, Trophy, ArrowRight, Zap, Target } from "lucide-react";
+import { motion } from "framer-motion";
 
 export const dynamic = 'force-dynamic';
 
@@ -9,74 +13,122 @@ export default async function Home() {
   const stats = await getUserStats();
 
   return (
-    <div className="flex flex-col items-center p-8 font-sans">
+    <div className="min-h-screen bg-background font-sans overflow-hidden">
       
-      {/* Tutorial / Onboarding */}
-      <Tutorial />
-
-      {/* Stats Section */}
-      <section className="w-full mb-12 mt-4">
-        <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800">
-           <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">Consistency Tracker</h3>
-           <Heatmap activityData={stats.heatmap} />
-           <div className="flex gap-8 mt-6">
-              <div>
-                <div className="text-2xl font-bold">{stats.streak}</div>
-                <div className="text-xs text-gray-500">Day Streak</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold">{stats.xp}</div>
-                <div className="text-xs text-gray-500">Total XP</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-emerald-500">{stats.mastered}</div>
-                <div className="text-xs text-gray-500">Mastered Items</div>
-              </div>
-           </div>
+      {/* Hero Section */}
+      <HeroHighlight>
+        <div className="text-center px-4 max-w-4xl mx-auto relative z-10">
+          <h1 className="text-4xl md:text-7xl font-bold text-white mb-6 tracking-tight">
+            Master Technical Concepts <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-blue to-neon-purple">
+              With Neuro-Stack
+            </span>
+          </h1>
+          <p className="text-gray-400 text-lg md:text-xl mb-8 max-w-2xl mx-auto leading-relaxed">
+            The advanced spaced-repetition platform for engineers. 
+            Transform raw information into permanent knowledge through the loop of mastery.
+          </p>
+          <div className="flex justify-center gap-4">
+            <Link href="/quiz" className="px-8 py-3 rounded-full bg-neon-blue text-black font-bold hover:bg-cyan-400 transition shadow-[0_0_20px_rgba(14,215,181,0.5)]">
+               Start Forging
+            </Link>
+            <Link href="/review" className="px-8 py-3 rounded-full border border-white/20 text-white hover:bg-white/10 transition backdrop-blur-md">
+               Daily Review
+            </Link>
+          </div>
         </div>
+      </HeroHighlight>
+
+      {/* Stats Bento Grid */}
+      <section className="relative z-20 -mt-32 px-4 pb-20">
+        <BentoGrid className="max-w-6xl">
+            
+          {/* Main Stat: Streak */}
+          <BentoGridItem
+            title="Consistency Streak"
+            description="Keep the fire alive. Daily reviews compound into mastery."
+            className="md:col-span-1 border-l-4 border-l-neon-blue"
+            icon={<Zap className="h-6 w-6 text-neon-blue" />}
+            header={
+              <div className="flex items-center justify-center h-full min-h-24 bg-gradient-to-br from-blue-900/20 to-transparent rounded-xl">
+                 <span className="text-6xl font-black text-white">{stats.streak}</span>
+                 <span className="ml-2 text-sm text-gray-500 uppercase tracking-widest rotate-90 origin-left">Days</span>
+              </div>
+            }
+          />
+
+          {/* Action: The Forge */}
+          <BentoGridItem
+            title="The Forge"
+            description="Input new knowledge. Paste AI-generated JSON quizzes here. Mistakes will be automatically captured."
+            className="md:col-span-1 group cursor-pointer hover:border-orange-500/50"
+            icon={<Flame className="h-6 w-6 text-orange-500" />}
+            header={
+                 <Link href="/quiz" className="flex items-center justify-center h-full min-h-24 border-2 border-dashed border-white/10 rounded-xl hover:border-orange-500/50 transition-colors group-hover:bg-orange-500/5">
+                    <div className="flex items-center gap-2 text-orange-500 font-bold">
+                        ENTER FORGE <ArrowRight className="w-4 h-4" />
+                    </div>
+                 </Link>
+            }
+          />
+
+          {/* Action: The Gym */}
+          <BentoGridItem
+            title="The Gym"
+            description="Daily Spaced Repetition Review. Strengthen your long-term memory."
+            className="md:col-span-1 group cursor-pointer hover:border-emerald-500/50"
+            icon={<Dumbbell className="h-6 w-6 text-emerald-500" />}
+            header={
+                 <Link href="/review" className="flex items-center justify-center h-full min-h-24 border-2 border-dashed border-white/10 rounded-xl hover:border-emerald-500/50 transition-colors group-hover:bg-emerald-500/5">
+                    <div className="flex items-center gap-2 text-emerald-500 font-bold">
+                        ENTER GYM <ArrowRight className="w-4 h-4" />
+                    </div>
+                 </Link>
+            }
+          />
+
+          {/* Large Item: Heatmap */}
+          <BentoGridItem
+            title="Activity Heatmap"
+            description="Visualise your cognitive load over time. Every green square is a neuron connection strengthened."
+            className="md:col-span-2 min-h-[300px]"
+            icon={<Target className="h-6 w-6 text-neon-purple" />}
+            header={
+               // Remove inner container styled box, let it breathe
+               <div className="flex items-end h-full pb-4">
+                 <Heatmap activityData={stats.heatmap} />
+               </div>
+            }
+          />
+
+           {/* Stats Summary */}
+           <BentoGridItem
+            title="Total Mastery"
+            description="Items completely internalized."
+            className="md:col-span-1 bg-gradient-to-br from-neon-purple/10 to-transparent"
+            icon={<Trophy className="h-6 w-6 text-yellow-500" />}
+            header={
+                <div className="flex flex-col gap-4">
+                    <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                        <span className="text-gray-400 text-xs uppercase">Total XP</span>
+                        <span className="text-xl font-bold font-mono">{stats.xp}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                        <span className="text-gray-400 text-xs uppercase">Mastered</span>
+                        <span className="text-xl font-bold font-mono text-emerald-400">{stats.mastered}</span>
+                    </div>
+                </div>
+            }
+          />
+
+        </BentoGrid>
       </section>
 
-      <main className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Card 1: The Forge */}
-        <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 hover:border-blue-500 transition-colors group relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <span className="text-6xl">🔥</span>
-          </div>
-          <h2 className="text-xl font-semibold mb-2 group-hover:text-blue-500 transition-colors">The Forge</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">
-            Input new knowledge. Paste AI-generated JSON quizzes here. 
-            Mistakes will be automatically captured.
-          </p>
-          <Link 
-            href="/quiz" 
-            className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-all w-full shadow-lg hover:shadow-blue-500/25"
-          >
-            Start New Quiz
-          </Link>
-        </div>
+      {/* Tutorial Overlay (Kept but discreet) */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <Tutorial />
+      </div>
 
-        {/* Card 2: The Gym */}
-        <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 hover:border-emerald-500 transition-colors group relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <span className="text-6xl">🏋️</span>
-          </div>
-          <h2 className="text-xl font-semibold mb-2 group-hover:text-emerald-500 transition-colors">The Gym</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">
-            Daily Spaced Repetition Review. Strengthen your long-term memory. 
-            Algorithm: Modified SM-2.
-          </p>
-          <Link 
-            href="/review"
-            className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-all w-full shadow-lg hover:shadow-emerald-500/25"
-          >
-            Start Review Session
-          </Link>
-        </div>
-      </main>
-      
-      <footer className="mt-20 text-center text-xs text-gray-400">
-        <p>Inquizitive v2.0 • Neuro-Stack Architecture</p>
-      </footer>
     </div>
   );
 }

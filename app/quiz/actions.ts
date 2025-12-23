@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { Question } from '@/types'
 import { Json } from '@/types/database'
 
-export async function saveMistake(topic: string, question: Question, tags: string[] = []) {
+export async function saveMistake(topic: string, question: Question, tags: string[] = [], subject: string = 'General') {
   const supabase = await createClient()
   
   // Get current user
@@ -17,6 +17,7 @@ export async function saveMistake(topic: string, question: Question, tags: strin
   // Insert into review_items
   const { error } = await supabase.from('review_items').insert({
     user_id: user.id,
+    subject,
     topic,
     question_json: question as unknown as Json,
     srs_level: 0, // New

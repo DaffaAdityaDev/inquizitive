@@ -9,6 +9,7 @@ create table review_items (
   user_id uuid references auth.users not null,
   
   -- Content
+  subject text default 'General', -- High-level workspace (e.g. "Golang", "Japanese")
   topic text not null,
   question_json jsonb not null, -- {q, options, answer, explanation}
   

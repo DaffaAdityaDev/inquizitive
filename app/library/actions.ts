@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { ReviewItem } from '@/types'
 
-export async function getAllReviews(search: string = '') {
+export async function getAllReviews(search: string = '', subject: string = 'General') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
@@ -13,6 +13,7 @@ export async function getAllReviews(search: string = '') {
     .from('review_items')
     .select('*')
     .eq('user_id', user.id)
+    .eq('subject', subject)
     .order('created_at', { ascending: false })
 
   if (search) {

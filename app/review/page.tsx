@@ -3,8 +3,12 @@ import ReviewSession from '@/components/ReviewSession'
 
 export const dynamic = 'force-dynamic'
 
+import { cookies } from 'next/headers'
+
 export default async function ReviewPage() {
-  const reviews = await getDueReviews()
+  const cookieStore = await cookies()
+  const subject = cookieStore.get('subject')?.value || 'General'
+  const reviews = await getDueReviews(subject)
 
   return (
     <div className="flex flex-col items-center pt-8">

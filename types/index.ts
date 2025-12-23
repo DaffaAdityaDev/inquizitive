@@ -11,6 +11,7 @@ export interface Question {
 export interface ReviewItem {
   id: string;
   user_id: string;
+  subject: string;
   topic: string;
   question_json: Question;
   srs_level: number;

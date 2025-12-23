@@ -11,19 +11,29 @@ export const metadata: Metadata = {
   description: "Mastery through Spaced Repetition and Active Recall",
 };
 
-export default function RootLayout({
+import { getSubjects } from "./actions";
+import { cookies } from "next/headers";
+import { SubjectProvider } from "@/contexts/SubjectContext";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies()
+  const currentSubject = cookieStore.get('subject')?.value || 'General'
+  const subjects = await getSubjects()
+
   return (
     <html lang="en">
-      <body className={`${inter.className} min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-gray-100`}>
-        <ConditionalNavbar />
-        <main className="max-w-5xl mx-auto w-full">
-          {children}
-        </main>
-        <Toaster position="top-center" />
+      <body className={`${inter.className} min-h-screen bg-background text-foreground antialiased selection:bg-neon-blue selection:text-black`}>
+        <SubjectProvider initialSubject={currentSubject} initialSubjects={subjects}>
+          <ConditionalNavbar />
+          <main className="w-full">
+            {children}
+          </main>
+          <Toaster position="top-center" />
+        </SubjectProvider>
       </body>
     </html>
   );

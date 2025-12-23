@@ -7,6 +7,8 @@ import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import { CodeBlock } from './CodeBlock'
 
+import { useSubject } from '@/contexts/SubjectContext'
+
 interface QuizRunnerProps {
   questions: Question[];
   topic: string;
@@ -14,6 +16,7 @@ interface QuizRunnerProps {
 }
 
 export default function QuizRunner({ questions, topic, tags = [] }: QuizRunnerProps) {
+  const { subject } = useSubject()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [isAnswered, setIsAnswered] = useState(false)
@@ -71,7 +74,7 @@ export default function QuizRunner({ questions, topic, tags = [] }: QuizRunnerPr
     } else {
       toast.error('Incorrect. Saving to Vault...')
       try {
-        await saveMistake(topic, currentQuestion, ['Quiz', ...tags])
+        await saveMistake(topic, currentQuestion, ['Quiz', ...tags], subject)
         toast.info('Saved to your Review Vault')
       } catch (e) {
         console.error(e)
