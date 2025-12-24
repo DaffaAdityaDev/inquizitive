@@ -5,6 +5,7 @@ import QuizRunner from '@/components/QuizRunner'
 import PromptBuilder from '@/components/PromptBuilder'
 import { Question } from '@/types'
 import { toast } from 'sonner'
+import { Copy } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -33,53 +34,67 @@ export default function QuizPage() {
   const [tags, setTags] = useState('')
   const [mode, setMode] = useState<'input' | 'quiz'>('input')
 
-  const [history, setHistory] = useState<{timestamp: number, topic: string, tags: string, json: string}[]>([])
+  const [history, setHistory] = useState<{ timestamp: number, topic: string, tags: string, json: string }[]>([])
+
+
 
   useEffect(() => {
-    const saved = localStorage.getItem('quiz_history')
-    if (saved) {
+    const load = async () => {
       try {
-        // eslint-disable-next-line
-        setHistory(JSON.parse(saved))
-      } catch (e) { console.error('Failed to parse history', e) }
+        const { getQuizHistory } = await import('./actions')
+        const data = await getQuizHistory()
+        setHistory(data)
+      } catch (e) {
+        console.error('Failed to load history', e)
+      }
     }
+    load()
   }, [])
 
-  const addToHistory = (topic: string, tags: string, json: string) => {
+  const addToHistory = async (topic: string, tags: string, json: string) => {
+    // Optimistic UI update
     const newItem = { timestamp: Date.now(), topic, tags, json }
-    const newHistory = [newItem, ...history.filter(h => h.json !== json)].slice(0, 5)
-    setHistory(newHistory)
-    localStorage.setItem('quiz_history', JSON.stringify(newHistory))
+    setHistory(prev => [newItem, ...prev].slice(0, 5))
+
+    // Save to DB
+    try {
+      const { saveQuizHistory } = await import('./actions')
+      // Ensure json is parsed/valid object for DB
+      const jsonContent = typeof json === 'string' ? JSON.parse(json) : json
+      await saveQuizHistory(topic, tags, jsonContent)
+    } catch (e) {
+      console.error('Failed to save history', e)
+    }
   }
 
-  const loadFromHistory = (item: {topic: string, tags: string, json: string}) => {
-      setTopic(item.topic)
-      setTags(item.tags)
-      setJsonInput(item.json)
-      toast.success('Loaded from history')
+  const loadFromHistory = (item: { topic: string, tags: string, json: string }) => {
+    setTopic(item.topic)
+    setTags(item.tags)
+    setJsonInput(item.json)
+    toast.success('Loaded from history')
   }
 
   const handleStart = () => {
     if (!jsonInput.trim()) {
-       toast.error('Please paste JSON')
-       return
+      toast.error('Please paste JSON')
+      return
     }
-    
+
     try {
       // Clean up markdown code blocks if present (e.g. ```json ... ```)
       const cleanJson = jsonInput.replace(/```json/g, '').replace(/```/g, '').trim()
       const parsed = JSON.parse(cleanJson)
-      
+
       if (!Array.isArray(parsed)) {
         toast.error('JSON must be an array of questions')
         return
       }
-      
+
       if (parsed.length > 0) {
         const sample = parsed[0]
         if (!sample.q || !sample.answer || !sample.explanation || !Array.isArray(sample.options)) {
-           toast.error('Invalid format. Missing q, answer, explanation, or options array.')
-           return
+          toast.error('Invalid format. Missing q, answer, explanation, or options array.')
+          return
         }
       }
 
@@ -109,11 +124,11 @@ export default function QuizPage() {
               The Forge 🔥
             </h1>
             <p className="text-gray-400 max-w-xl mx-auto">
-              The input stage of the Neuro-Stack. 
+              The input stage of the Neuro-Stack.
               Generate content, ingest JSON, and prepare for mastery.
             </p>
           </div>
-          
+
           <PromptBuilder />
 
           <Card className="glass border-0 ring-1 ring-white/10">
@@ -124,8 +139,8 @@ export default function QuizPage() {
                 </CardTitle>
                 <CardDescription className="text-gray-400">Step 3: Paste AI Result</CardDescription>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={loadDemo}
                 className="border-white/10 hover:bg-white/5 text-gray-300"
@@ -136,7 +151,7 @@ export default function QuizPage() {
             <CardContent className="space-y-6 pt-6">
               <div className="grid gap-2">
                 <Label className="text-gray-300">Topic Name (for your Vault)</Label>
-                <Input 
+                <Input
                   placeholder="e.g. Golang Concurrency"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
@@ -146,17 +161,17 @@ export default function QuizPage() {
 
               <div className="grid gap-2">
                 <Label className="text-gray-300">Tags (comma separated)</Label>
-                <Input 
+                <Input
                   placeholder="e.g. Backend, System Design, Go"
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
                   className="bg-black/20 border-white/10 text-white placeholder:text-gray-600 focus:ring-orange-500/50"
                 />
               </div>
-              
+
               <div className="grid gap-2">
                 <Label className="text-gray-300">Paste JSON Array</Label>
-                <Textarea 
+                <Textarea
                   className="h-48 font-mono bg-black/40 border-white/10 text-xs text-gray-300 focus:ring-orange-500/50"
                   placeholder='[{"q": "...", "options": ["A", "B"], "answer": "A", "explanation": "..."}]'
                   value={jsonInput}
@@ -164,7 +179,7 @@ export default function QuizPage() {
                 />
               </div>
 
-              <Button 
+              <Button
                 onClick={handleStart}
                 className="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold py-6 shadow-lg shadow-orange-500/20 border-0"
                 size="lg"
@@ -175,25 +190,28 @@ export default function QuizPage() {
           </Card>
         </div>
       ) : (
-        <QuizRunner 
-          questions={questions} 
-          topic={topic || 'Untitled Quiz'} 
-          tags={tags.split(',').map(t => t.trim()).filter(Boolean)} 
+        <QuizRunner
+          questions={questions}
+          topic={topic || 'Untitled Quiz'}
+          tags={tags.split(',').map(t => t.trim()).filter(Boolean)}
         />
       )}
-      
-       {/* History Section */}
-       {history.length > 0 && mode === 'input' && (
-          <div className="max-w-3xl mx-auto pb-20 mt-8">
-            <h3 className="text-xl font-bold text-gray-400 mb-4 px-1">🕑 Recent Forges</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {history.map((item) => (
-                <button 
-                  key={item.timestamp}
+
+      {/* History Section */}
+      {history.length > 0 && mode === 'input' && (
+        <div className="max-w-3xl mx-auto pb-20 mt-8">
+          <h3 className="text-xl font-bold text-gray-400 mb-4 px-1">🕑 Recent Forges</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {history.map((item) => (
+              <div
+                key={item.timestamp}
+                className="bg-white/5 border border-white/5 p-4 rounded-xl text-left hover:bg-white/10 hover:border-white/10 transition group relative"
+              >
+                <button
                   onClick={() => loadFromHistory(item)}
-                  className="bg-white/5 border border-white/5 p-4 rounded-xl text-left hover:bg-white/10 hover:border-white/10 transition group"
+                  className="w-full text-left"
                 >
-                  <div className="font-bold text-white group-hover:text-neon-blue transition-colors truncate">
+                  <div className="font-bold text-white group-hover:text-neon-blue transition-colors truncate pr-8">
                     {item.topic || 'Untitled Quiz'}
                   </div>
                   <div className="text-xs text-gray-500 mt-1 flex justify-between">
@@ -201,10 +219,24 @@ export default function QuizPage() {
                     <span className="truncate max-w-[100px] text-right ml-2 opacity-70">{item.tags}</span>
                   </div>
                 </button>
-              ))}
-            </div>
+
+                {/* Copy Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigator.clipboard.writeText(item.json)
+                    toast.success('JSON copied to clipboard')
+                  }}
+                  className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors p-1"
+                  title="Copy JSON"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+      )}
     </div>
   )
 }

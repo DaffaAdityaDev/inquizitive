@@ -143,13 +143,20 @@ export async function importUserData(
       const q = typeof item.question_json === 'object' && item.question_json !== null
         ? (item.question_json as { q?: string }).q
         : ''
-      const key = `${item.topic}::${q}`
-      existingMap.set(key, item.id)
+
+      // Safety check: ensure q is a string
+      if (typeof q === 'string') {
+        const key = `${item.topic}::${q.trim()}`
+        existingMap.set(key, item.id)
+      }
     })
 
     for (const item of backup.data.review_items) {
-      const questionText = item.question_json?.q || ''
-      const matchKey = `${item.topic}::${questionText}`
+      const questionText = typeof item.question_json === 'object' && item.question_json !== null
+        ? (item.question_json as { q?: string }).q || ''
+        : ''
+
+      const matchKey = `${item.topic}::${questionText.trim()}`
       const existingId = existingMap.get(matchKey)
 
       const itemData = {

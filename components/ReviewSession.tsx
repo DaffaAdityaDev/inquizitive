@@ -21,7 +21,7 @@ export default function ReviewSession({ initialReviews }: ReviewSessionProps) {
   // Keyboard navigation
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (reviews.length === 0) return
-    
+
     if (e.key === 'ArrowLeft') {
       if (currentIndex > 0) {
         setCurrentIndex(prev => prev - 1)
@@ -47,12 +47,12 @@ export default function ReviewSession({ initialReviews }: ReviewSessionProps) {
     return (
       <div className="text-center py-20">
         <div className="inline-block p-4 rounded-full bg-white/5 mb-6">
-            <span className="text-4xl">🎉</span>
+          <span className="text-4xl">🎉</span>
         </div>
         <h2 className="text-2xl font-bold mb-4 text-white">All Caught Up!</h2>
         <p className="text-gray-400 mb-8 max-w-md mx-auto">No cards due for review right now. Go learn something new in The Forge!</p>
         <a href="/quiz" className="px-8 py-3 bg-neon-blue text-black font-bold rounded-full hover:bg-cyan-400 transition shadow-[0_0_20px_rgba(14,215,181,0.4)]">
-            Go to The Forge
+          Go to The Forge
         </a>
       </div>
     )
@@ -83,7 +83,7 @@ export default function ReviewSession({ initialReviews }: ReviewSessionProps) {
       await submitReview(currentItem.id, grade)
       const xpReward = grade >= 4 ? 15 : grade === 3 ? 10 : 5
       toast.success(`Review saved! +${xpReward} XP 🎯`)
-      
+
       if (currentIndex < reviews.length - 1) {
         setIsFlipped(false)
         setCurrentIndex(prev => prev + 1)
@@ -115,66 +115,66 @@ export default function ReviewSession({ initialReviews }: ReviewSessionProps) {
 
       {/* Flashcard */}
       <div className="glass rounded-3xl min-h-[450px] flex flex-col relative overflow-hidden transition-all duration-500 transform perspective-1000">
-        
+
         {/* Navigation Overlays */}
         {canGoPrev && (
-            <div 
-                onClick={handlePrev}
-                className="absolute left-0 top-0 bottom-0 w-16 z-20 hover:bg-gradient-to-r from-white/5 to-transparent cursor-pointer transition flex items-center justify-center group"
-            >
-                <div className="opacity-0 group-hover:opacity-100 transition text-white/50 text-2xl">‹</div>
-            </div>
+          <div
+            onClick={handlePrev}
+            className="absolute left-0 top-0 bottom-0 w-16 z-20 hover:bg-gradient-to-r from-white/5 to-transparent cursor-pointer transition flex items-center justify-center group"
+          >
+            <div className="opacity-0 group-hover:opacity-100 transition text-white/50 text-2xl">‹</div>
+          </div>
         )}
         {canGoNext && (
-            <div 
-                onClick={handleNext}
-                className="absolute right-0 top-0 bottom-0 w-16 z-20 hover:bg-gradient-to-l from-white/5 to-transparent cursor-pointer transition flex items-center justify-center group"
-            >
-                <div className="opacity-0 group-hover:opacity-100 transition text-white/50 text-2xl">›</div>
-            </div>
+          <div
+            onClick={handleNext}
+            className="absolute right-0 top-0 bottom-0 w-16 z-20 hover:bg-gradient-to-l from-white/5 to-transparent cursor-pointer transition flex items-center justify-center group"
+          >
+            <div className="opacity-0 group-hover:opacity-100 transition text-white/50 text-2xl">›</div>
+          </div>
         )}
 
         {/* Front (Question) */}
         <div className="p-10 flex-1 flex flex-col">
           <div className="flex justify-between items-start mb-6">
             <span className="inline-block px-3 py-1 text-xs font-bold bg-white/10 text-neon-blue rounded-full tracking-wide">
-               {currentItem.topic}
+              {currentItem.topic}
             </span>
-             <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => (
-                    <div key={i} className={`w-1.5 h-1.5 rounded-full ${i < currentItem.srs_level ? 'bg-neon-emerald' : 'bg-gray-700'}`} />
-                ))}
-             </div>
+            <div className="flex gap-1">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className={`w-1.5 h-1.5 rounded-full ${i < currentItem.srs_level ? 'bg-neon-emerald' : 'bg-gray-700'}`} />
+              ))}
+            </div>
           </div>
-          
+
           <div className="prose prose-invert max-w-none text-xl leading-relaxed flex-1 flex flex-col justify-center">
-             <ReactMarkdown
-               components={{
-                 code({className, children, ...props}) {
-                   const match = /language-(\w+)/.exec(className || '')
-                   return match ? (
-                     <CodeBlock language={match[1]} value={String(children).replace(/\n$/, '')} />
-                   ) : (
-                     <code className="bg-white/10 px-1 py-0.5 rounded text-neon-purple font-mono text-base" {...props}>{children}</code>
-                   )
-                 }
-               }}
-             >
-               {question.q}
-             </ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                code({ className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || '')
+                  return match ? (
+                    <CodeBlock language={match[1]} value={String(children).replace(/\n$/, '')} />
+                  ) : (
+                    <code className="bg-white/10 px-1 py-0.5 rounded text-neon-purple font-mono text-base" {...props}>{children}</code>
+                  )
+                }
+              }}
+            >
+              {question.q}
+            </ReactMarkdown>
           </div>
         </div>
 
         {/* Back (Answer) */}
         {isFlipped && (
           <div className="p-10 bg-black/40 border-t border-white/5 animate-slide-up backdrop-blur-xl">
-             <div className="mb-4 pl-4 border-l-4 border-neon-emerald">
-                <div className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1">Correct Answer</div>
-                <div className="text-lg text-white font-medium">{question.answer}</div>
-             </div>
-             <div className="prose prose-invert text-sm text-gray-300">
-                <ReactMarkdown>{question.explanation}</ReactMarkdown>
-             </div>
+            <div className="mb-4 pl-4 border-l-4 border-neon-emerald">
+              <div className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1">Correct Answer</div>
+              <div className="text-lg text-white font-medium">{question.answer}</div>
+            </div>
+            <div className="prose prose-invert text-sm text-gray-300">
+              <ReactMarkdown>{question.explanation}</ReactMarkdown>
+            </div>
           </div>
         )}
       </div>
@@ -192,30 +192,30 @@ export default function ReviewSession({ initialReviews }: ReviewSessionProps) {
           </button>
         ) : (
           <div className="grid grid-cols-4 gap-4 w-full max-w-xl">
-            <RateButton label="Again" sub="< 1m" color="bg-red-500" onClick={() => handleRate(0)} disabled={isProcessing} />
-            <RateButton label="Hard" sub="2d" color="bg-orange-500" onClick={() => handleRate(3)} disabled={isProcessing} />
-            <RateButton label="Good" sub="3d" color="bg-blue-500" onClick={() => handleRate(4)} disabled={isProcessing} />
-            <RateButton label="Easy" sub="4d" color="bg-emerald-500" onClick={() => handleRate(5)} disabled={isProcessing} />
+            <RateButton label="Again" sub="< 1m" color="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30" textColor="text-red-400" onClick={() => handleRate(0)} disabled={isProcessing} />
+            <RateButton label="Hard" sub="2d" color="bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/30" textColor="text-orange-400" onClick={() => handleRate(3)} disabled={isProcessing} />
+            <RateButton label="Good" sub="3d" color="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30" textColor="text-blue-400" onClick={() => handleRate(4)} disabled={isProcessing} />
+            <RateButton label="Easy" sub="4d" color="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30" textColor="text-emerald-400" onClick={() => handleRate(5)} disabled={isProcessing} />
           </div>
         )}
       </div>
-      
+
       <div className="text-center text-xs text-gray-600 font-mono">
-         [Space] Flip • [←/→] Navigate
+        [Space] Flip • [←/→] Navigate
       </div>
     </div>
   )
 }
 
-function RateButton({ label, sub, color, onClick, disabled }: any) {
-    return (
-        <button 
-            onClick={onClick}
-            disabled={disabled}
-            className={`flex flex-col items-center justify-center py-3 rounded-xl transition transform hover:scale-105 active:scale-95 ${color} bg-opacity-10 hover:bg-opacity-20 border border-transparent hover:border-${color.split('-')[1]}-500/50`}
-        >
-            <span className={`font-bold text-${color.split('-')[1]}-400`}>{label}</span>
-            <span className="text-xs text-gray-500">{sub}</span>
-        </button>
-    )
+function RateButton({ label, sub, color, textColor, onClick, disabled }: any) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex flex-col items-center justify-center py-3 rounded-xl transition transform hover:scale-105 active:scale-95 ${color} disabled:opacity-50`}
+    >
+      <span className={`font-bold ${textColor}`}>{label}</span>
+      <span className="text-xs text-white/50">{sub}</span>
+    </button>
+  )
 }

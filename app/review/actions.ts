@@ -7,7 +7,7 @@ import { ReviewItem } from '@/types'
 export async function getDueReviews(subject: string = 'General') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   if (!user) return []
 
   // Fetch items where next_review_at <= NOW
@@ -30,7 +30,12 @@ export async function getDueReviews(subject: string = 'General') {
 
 export async function submitReview(itemId: string, grade: number) {
   const supabase = await createClient()
-  
+
+  // Validate grade
+  if (grade < 0 || grade > 5) {
+    throw new Error('Invalid grade: must be 0-5')
+  }
+
   // 1. Get current item state
   const { data: item, error: fetchError } = await supabase
     .from('review_items')
@@ -48,7 +53,7 @@ export async function submitReview(itemId: string, grade: number) {
   }
 
   const result = calculateSRS(currentSRS, grade)
-  
+
   // 3. Calculate next date
   const nextDate = new Date()
   nextDate.setDate(nextDate.getDate() + result.interval)
@@ -72,7 +77,7 @@ export async function submitReview(itemId: string, grade: number) {
   if (user) {
     // Calculate XP based on grade (higher grade = more XP)
     const xpReward = grade >= 4 ? 15 : grade === 3 ? 10 : 5
-    
+
     // Get current stats
     const { data: currentStats } = await supabase
       .from('learning_stats')
@@ -81,15 +86,15 @@ export async function submitReview(itemId: string, grade: number) {
       .single()
 
     const today = new Date().toISOString().split('T')[0]
-    
+
     if (currentStats) {
       // Check if streak continues (activity within last 2 days)
       const lastActivity = currentStats.last_activity_date
-      const daysSinceLastActivity = lastActivity 
+      const daysSinceLastActivity = lastActivity
         ? Math.floor((new Date().getTime() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24))
         : 999
 
-      const newStreak = daysSinceLastActivity <= 1 
+      const newStreak = daysSinceLastActivity <= 1
         ? currentStats.current_streak + (lastActivity !== today ? 1 : 0)
         : 1
 
@@ -122,6 +127,6 @@ export async function submitReview(itemId: string, grade: number) {
         })
     }
   }
-  
+
   return { success: true, nextReview: nextDate }
 }
