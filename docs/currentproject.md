@@ -1,169 +1,171 @@
-# Inquizitive - Question Converter & Quiz Application
+# Inquizitive v2 - Neuro-Stack Learning Platform
 
 ## Overview
 
-**Inquizitive** is a React-based web application designed to help users create, manage, and take interactive quizzes. The application integrates with Google's Gemini AI API to generate educational questions and provide intelligent feedback on user answers. It supports both open-ended and multiple-choice question types, making it suitable for various learning scenarios.
+**Inquizitive** is a Next.js-based spaced repetition learning platform designed for engineers. It uses the **Neuro-Stack Architecture** to transform raw knowledge (from AI-generated quizzes) into long-term memory through scientifically-backed SRS (Spaced Repetition System) algorithms.
 
-## Core Functionality
+## Technology Stack
 
-### 1. Question Generation
-- **AI-Powered Question Creation**: Uses Google Gemini API to generate questions based on user-provided topics
-- **Question Types**: Supports two question formats:
-  - **Open-Ended Questions**: Require detailed written responses with expected answers
-  - **Multiple Choice Questions**: Provide 4 options (A, B, C, D) with detailed explanations for each option
-- **Template System**: Includes structured prompt templates that guide AI to generate high-quality educational questions
+| Category | Technology |
+|----------|------------|
+| **Framework** | Next.js 16.1 (App Router) |
+| **Language** | TypeScript 5 |
+| **UI Library** | React 19.2 |
+| **Styling** | Tailwind CSS 4 |
+| **Database** | Supabase (PostgreSQL + Auth) |
+| **Animations** | Framer Motion 12 |
+| **Notifications** | Sonner 2.0 |
+| **Syntax Highlighting** | react-syntax-highlighter + Prism |
+| **Markdown** | react-markdown 10 |
+| **Icons** | Lucide React |
+| **UI Components** | Radix UI + Custom shadcn/ui |
 
-### 2. Quiz Mode
-- **Interactive Quiz Interface**: Users can answer questions one at a time
-- **Progress Tracking**: Visual progress bar shows completion status
-- **Navigation**: Users can move between questions (Previous/Next buttons)
-- **Code Mode**: Special mode for open-ended questions that allows code input with syntax highlighting
-- **Answer Collection**: Stores all user answers for later evaluation
+## Core Features
 
-### 3. AI Feedback System
-- **Answer Evaluation**: Generates detailed feedback on user answers using AI
-- **Grading**: Provides grades and evaluations for each answer
-- **Learning Resources**: Includes relevant documentation links, tutorials, and practice exercises
-- **Detailed Explanations**: For multiple-choice questions, explains why each option is correct or incorrect
+### 1. The Forge (Quiz Input)
+- **JSON Input**: Paste AI-generated quiz JSON from ChatGPT/Gemini
+- **Prompt Builder**: Generate AI-ready prompts (Scenario-Based, Concept Deep Dive)
+- **Mistake Capture**: Wrong answers automatically saved to "The Vault" (SRS database)
+- **Subject/Workspace Management**: Organize items by topic workspaces
 
-### 4. Model Management
-- **Dynamic Model Selection**: Fetches available Gemini models from the API
-- **Model Switching**: Users can select different AI models for question generation and feedback
-- **Default Configuration**: Uses `gemini-2.0-flash` as default, configurable via environment variables
+### 2. The Gym (Daily Review)
+- **SRS Algorithm**: Modified SM-2 (SuperMemo 2) for optimal review scheduling
+- **Rating System**: Again (0) → Hard (3) → Good (4) → Easy (5)
+- **Flashcard UI**: Interactive reveal-and-rate interface
+- **Subject Filtering**: Review by specific workspace/subject
 
-## Technical Architecture
+### 3. The Library (Browse)
+- **Full Item List**: View all saved review items
+- **Search & Filter**: Filter by topic, subject, SRS level
+- **Mastery Tracking**: Visual indicators for item progress
 
-### Technology Stack
-- **Frontend Framework**: React 18.3 with TypeScript
-- **Build Tool**: Vite 5.4
-- **UI Library**: NextUI 2.4 (React component library)
-- **Styling**: Tailwind CSS 3.4
-- **State Management**: React Context API + Custom Hooks
-- **Data Fetching**: SWR 2.3 for data fetching and caching
-- **API Integration**: Google Gemini Generative AI API (`@google/genai`)
-- **Notifications**: Sonner (toast notifications)
-- **Animations**: Framer Motion 11.11
-- **Validation**: Zod 3.23 for schema validation
+### 4. Gamification
+- **XP System**: Earn XP for reviews and learning from mistakes
+- **Streak Counter**: Track consecutive days of activity
+- **Heatmap**: GitHub-style activity visualization
+- **Mastery Counter**: Track fully internalized items (Level 4+)
 
-### Project Structure
+### 5. Cognitive Learning Modes
+- **Hardcore Mode**: Hide answer options until ready (Generation Effect)
+- **Feynman Mode**: Require explanation before answering
+
+## Project Structure
 
 ```
-src/
-├── components/          # React components
-│   ├── QuestionConverter.tsx    # Main application component
-│   ├── Navbar.tsx               # Navigation bar with theme toggle
-│   ├── QuestionInput.tsx        # Question input interface
-│   ├── MultipleChoiceInput.tsx  # Multiple choice question UI
-│   ├── AIFeedbackDisplay.tsx    # Feedback visualization
-│   └── ErrorDisplay.tsx         # Error handling UI
-├── context/            # React Context providers
-│   └── ModelContext.tsx         # Model selection state management
-├── hooks/              # Custom React hooks
-│   ├── useQuestionConverter.ts  # Main business logic hook
-│   ├── useQuizState.ts          # Quiz state management
-│   ├── useAIFeedback.ts         # AI feedback handling
-│   ├── useQuestionType.ts       # Question type management
-│   └── usePromptInput.ts        # Prompt input handling
-├── services/           # API services
-│   ├── api.ts                   # Base API service
-│   ├── geminiService.ts         # Gemini API integration
-│   └── questionService.ts       # Question processing
-├── types/              # TypeScript type definitions
-│   ├── index.ts                 # Core types (Question, UserAnswer, etc.)
-│   └── api.ts                   # API response types
-├── constants/           # Application constants
-│   └── prompts.ts               # AI prompt templates
-└── utils/              # Utility functions
-    ├── extractJsonFromPrompt.ts # JSON extraction from AI responses
-    ├── parseAIFeedback.ts       # Feedback parsing
-    └── errorUtils.ts            # Error handling utilities
+inquizitive-v2/
+├── app/                          # Next.js App Router
+│   ├── page.tsx                  # Dashboard (Heatmap, Stats, Navigation)
+│   ├── actions.ts                # getUserStats, createWorkspace, deleteWorkspace, getSubjects
+│   ├── layout.tsx                # Root layout with providers
+│   ├── globals.css               # Global styles + Tailwind
+│   ├── login/
+│   │   ├── page.tsx              # Login/Signup UI
+│   │   └── actions.ts            # login, signup, loginWithGoogle
+│   ├── auth/callback/
+│   │   └── route.ts              # OAuth callback handler
+│   ├── quiz/
+│   │   ├── page.tsx              # The Forge (JSON input + Quiz)
+│   │   └── actions.ts            # saveMistake()
+│   ├── review/
+│   │   ├── page.tsx              # The Gym (SRS review)
+│   │   └── actions.ts            # getDueReviews(), submitReview()
+│   ├── library/
+│   │   ├── page.tsx              # Browse all items
+│   │   └── actions.ts            # getAllReviews()
+│   ├── profile/
+│   │   ├── page.tsx              # User profile
+│   │   └── actions.ts            # signOut()
+│   └── gate/                     # Auth gate middleware
+├── components/
+│   ├── QuizRunner.tsx            # Quiz execution (Hardcore/Feynman modes)
+│   ├── ReviewSession.tsx         # Flashcard SRS review
+│   ├── PromptBuilder.tsx         # AI prompt generator
+│   ├── SubjectSelector.tsx       # Workspace/Subject dropdown
+│   ├── CodeBlock.tsx             # Syntax highlighting wrapper
+│   ├── Heatmap.tsx               # Activity calendar (GitHub-style)
+│   ├── Navbar.tsx                # Main navigation
+│   ├── ConditionalNavbar.tsx     # Route-aware navbar
+│   ├── Tutorial.tsx              # Onboarding overlay
+│   └── ui/                       # shadcn/ui components
+│       ├── bento-grid.tsx
+│       ├── button.tsx
+│       ├── card.tsx
+│       ├── hero-highlight.tsx
+│       ├── input.tsx
+│       ├── label.tsx
+│       └── textarea.tsx
+├── contexts/
+│   └── SubjectContext.tsx        # Global subject/workspace state
+├── constants/
+│   └── prompts.ts                # AI prompt templates
+├── utils/
+│   ├── srsAlgorithm.ts           # SM-2 implementation
+│   └── supabase/
+│       ├── client.ts             # Browser Supabase client
+│       ├── server.ts             # Server Supabase client
+│       └── middleware.ts         # Auth middleware helper
+├── types/
+│   ├── index.ts                  # Core types (Question, ReviewItem)
+│   └── database.ts               # Supabase database types
+├── db/
+│   ├── schema.sql                # Main database schema
+│   ├── migration_01_add_subject.sql
+│   └── migration_02_workspaces.sql
+└── lib/
+    └── utils.ts                  # cn() utility for class merging
 ```
-
-### Key Features Implementation
-
-#### 1. Question Type System
-- Enum-based type system (`OPEN_ENDED`, `MULTIPLE_CHOICE`)
-- Type-safe question structures with TypeScript discriminated unions
-- Dynamic prompt templates based on question type
-
-#### 2. State Management
-- Custom hooks pattern for separation of concerns
-- Context API for global state (model selection)
-- Local state for component-specific data
-
-#### 3. API Integration
-- RESTful API service wrapper
-- Environment variable configuration for API keys
-- Error handling and retry logic
-- Response parsing and validation
-
-#### 4. User Experience
-- Dark/Light theme toggle (persisted in localStorage)
-- Keyboard shortcuts (Enter to submit, navigate)
-- Loading states and progress indicators
-- Toast notifications for user feedback
-- Modal dialogs for tutorials and topic input
 
 ## Environment Configuration
 
-The application requires the following environment variables:
+Create `.env.local` with:
 
-- `VITE_GEMINI_API_KEY`: Google Gemini API key (required)
-- `VITE_GEMINI_MODEL`: Default Gemini model to use (optional, defaults to `gemini-2.0-flash`)
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=eyJhbGci... (your anon key)
+```
+
+## Development Scripts
+
+```bash
+# Install dependencies
+bun install
+
+# Start development server
+bun dev
+
+# Build for production
+bun run build
+
+# Start production server
+bun start
+
+# Run linting
+bun run lint
+```
+
+## Authentication
+
+Supports hybrid authentication via Supabase Auth:
+- **Email/Password**: Traditional signup and login
+- **Google OAuth**: One-click Google sign-in
+
+## Database Schema
+
+### Tables
+1. **`review_items`** - The Vault (SRS items)
+2. **`learning_stats`** - Gamification (XP, streak, mastered count)
+3. **`workspaces`** - User-defined subject workspaces
+
+### SRS Fields
+- `srs_level`: 0 (New) → 4+ (Mastered)
+- `ease_factor`: Difficulty multiplier (default 2.5)
+- `interval_days`: Days until next review
+- `next_review_at`: Scheduled review timestamp
 
 ## Usage Workflow
 
-1. **Generate Questions**:
-   - Select question type (Open-Ended or Multiple Choice)
-   - Click "Copy Base Prompt Template" to get a template
-   - Enter a topic in the modal
-   - Either copy the template to use with an external AI assistant, or generate questions directly using the "Generate Questions" button
-
-2. **Answer Questions**:
-   - Paste the AI-generated prompt (with `<output>` tags containing JSON) into the input field
-   - Click "Start Answering Questions"
-   - Answer each question in sequence
-   - Navigate between questions using Previous/Next buttons
-   - Complete the quiz
-
-3. **Get Feedback**:
-   - After completing the quiz, switch to the "AI Feedback" tab
-   - Generate feedback using the "Generate" button, or paste pre-generated feedback
-   - Review detailed evaluations, grades, and learning resources
-
-## Development
-
-### Available Scripts
-- `npm run dev`: Start development server
-- `npm run build`: Build for production
-- `npm run preview`: Preview production build
-- `npm run lint`: Run ESLint
-- `npm test`: Run tests with Vitest
-
-### Code Quality
-- TypeScript for type safety
-- ESLint for code linting
-- React Hooks linting rules
-- Error boundaries for graceful error handling
-
-## Design Philosophy
-
-The application follows these principles:
-
-1. **Type Safety**: Extensive use of TypeScript for compile-time error checking
-2. **Component Composition**: Modular, reusable components
-3. **Separation of Concerns**: Business logic in custom hooks, UI in components
-4. **User-Centric Design**: Intuitive interface with helpful tutorials and feedback
-5. **Accessibility**: ARIA labels and keyboard navigation support
-6. **Responsive Design**: Works across different screen sizes
-
-## Future Enhancements
-
-Potential areas for expansion:
-- Support for additional question types (True/False, Fill-in-the-blank)
-- Question bank and history management
-- Export/import functionality for quizzes
-- Collaborative features (sharing quizzes)
-- Analytics and progress tracking
-- Customizable themes and branding
-
+1. **Generate Questions**: Use external AI (ChatGPT/Gemini) with prompts from Prompt Builder
+2. **Take Quiz**: Paste JSON into The Forge, answer questions
+3. **Learn from Mistakes**: Wrong answers auto-save to The Vault
+4. **Daily Review**: Visit The Gym to review due items via SRS
+5. **Track Progress**: Dashboard shows streak, XP, heatmap, mastery stats

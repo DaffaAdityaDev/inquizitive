@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { signOut } from './actions'
+import BackupSection from '@/components/BackupSection'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -21,7 +22,7 @@ export default async function ProfilePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <div className="w-full max-w-md space-y-6 bg-white p-8 rounded-2xl shadow-lg dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-        
+
         {/* Header */}
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Your Profile</h1>
@@ -31,9 +32,9 @@ export default async function ProfilePage() {
         {/* Avatar */}
         <div className="flex justify-center">
           {avatarUrl ? (
-            <Image 
-              src={avatarUrl} 
-              alt="Profile Avatar" 
+            <Image
+              src={avatarUrl}
+              alt="Profile Avatar"
               width={96}
               height={96}
               className="w-24 h-24 rounded-full border-4 border-blue-500 shadow-lg object-cover"
@@ -51,7 +52,7 @@ export default async function ProfilePage() {
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Full Name</label>
             <p className="text-lg font-semibold">{fullName}</p>
           </div>
-          
+
           <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</label>
             <p className="text-lg font-semibold">{email}</p>
@@ -75,17 +76,20 @@ export default async function ProfilePage() {
           </div>
         </div>
 
+        {/* Backup Section */}
+        <BackupSection />
+
         {/* Actions */}
         <div className="flex flex-col gap-3 pt-4">
-          <Link 
+          <Link
             href="/"
             className="w-full text-center py-3 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
           >
             ← Back to Dashboard
           </Link>
-          
+
           <form action={signOut}>
-            <button 
+            <button
               type="submit"
               className="w-full py-3 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 font-medium hover:bg-red-500/20 transition border border-red-500/30"
             >
