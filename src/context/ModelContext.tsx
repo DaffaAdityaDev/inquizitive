@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useEffect, ReactNode } from 'react'
-import { APIService } from '../services/api'
+import { APIService } from '../infrastructure/http/api'
 import { toast } from 'sonner'
 
 export interface ModelContextType {
@@ -34,7 +34,7 @@ export const ModelProvider = ({ children }: { children: ReactNode }) => {
         const res = await listService.fetch<{ models: { name: string }[] }>(
           `?key=${apiKey}`
         )
-        const names = res.models.map(m => {
+        const names = res.models.map((m: any) => {
           // Extract model name suffix if full resource path
           const parts = m.name.split('/')
           return parts[parts.length - 1]
