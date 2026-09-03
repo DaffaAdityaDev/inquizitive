@@ -1,13 +1,20 @@
 import { useState } from 'react'
 import { Question, QuestionMastery, ParsedFeedback, MASTERY_THRESHOLD } from '../../../shared/types'
 import { parseGradeToScore } from '../utils/gradeParser'
+import { loadSavedSession } from '../../quiz/hooks/useQuizPersistence'
 
 /**
- * Manages the on-demand mastery loop: stateless, no DB, no localStorage.
+ * Manages the on-demand mastery loop with localStorage persistence.
  */
 export function useMasteryTracking() {
-  const [masteryMap, setMasteryMap] = useState<Record<number, QuestionMastery>>({})
-  const [currentRound, setCurrentRound] = useState(1)
+  const [masteryMap, setMasteryMap] = useState<Record<number, QuestionMastery>>(() => {
+    const saved = loadSavedSession()
+    return saved?.masteryMap || {}
+  })
+  const [currentRound, setCurrentRound] = useState(() => {
+    const saved = loadSavedSession()
+    return saved?.currentRound || 1
+  })
   const [isFullyMastered, setIsFullyMastered] = useState(false)
 
   const updateMastery = (
@@ -51,7 +58,9 @@ export function useMasteryTracking() {
 
   return {
     masteryMap,
+    setMasteryMap,
     currentRound,
+    setCurrentRound,
     masteredCount,
     isFullyMastered,
     updateMastery,

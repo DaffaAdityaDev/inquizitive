@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQuizState } from './useQuizState'
 import { usePromptInput } from './usePromptInput'
 import { useAIFeedback } from '../../feedback'
@@ -6,17 +6,10 @@ import { useTutorialAndModals } from './useTutorialAndModals'
 import { useQuestionType } from '../../prompts'
 import { useMasteryTracking } from '../../mastery'
 import { toast } from 'sonner'
-import { generateTemplate } from '../../../infrastructure/ai/geminiService'
-import { useModelContext } from '../../../context/ModelContext'
-import { QuestionType, QuestionData } from '../../../shared/types'
+import { QuestionData } from '../../../shared/types'
+import { saveSession, clearSavedSession } from './useQuizPersistence'
 
 export function useQuizOrchestrator() {
-  // Model selection from context
-  const { selectedModel } = useModelContext()
-  // State for direct AI generation of question templates
-  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false)
-  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false)
-
   // Add questionType state
   const {
     selectedQuestionType,
@@ -31,8 +24,39 @@ export function useQuizOrchestrator() {
   const tutorialState = useTutorialAndModals()
   const masteryState = useMasteryTracking()
 
-  // Keep a reference to the initial full question set
-  const originalOutputRef = useRef<QuestionData | null>(null)
+  // Keep a reference to the initial full question set (synchronized on mount)
+  const originalOutputRef = useRef<QuestionData | null>(quizState.output)
+
+  // Auto-save active session to localStorage whenever state changes
+  useEffect(() => {
+    if (quizState.output || promptInputState.promptInput) {
+      saveSession({
+        output: quizState.output,
+        userAnswers: quizState.userAnswers,
+        currentQuestionIndex: quizState.currentQuestionIndex,
+        currentAnswer: quizState.currentAnswer,
+        isQuizMode: quizState.isQuizMode,
+        isCompleted: quizState.isCompleted,
+        isCodeMode: quizState.isCodeMode,
+        promptInput: promptInputState.promptInput,
+        aiFeedback: aiFeedbackState.aiFeedback,
+        masteryMap: masteryState.masteryMap,
+        currentRound: masteryState.currentRound
+      })
+    }
+  }, [
+    quizState.output,
+    quizState.userAnswers,
+    quizState.currentQuestionIndex,
+    quizState.currentAnswer,
+    quizState.isQuizMode,
+    quizState.isCompleted,
+    quizState.isCodeMode,
+    promptInputState.promptInput,
+    aiFeedbackState.aiFeedback,
+    masteryState.masteryMap,
+    masteryState.currentRound
+  ])
 
   // Modify handleCopyBasePrompt to use the selected question type
   const handleCopyBasePrompt = () => {
@@ -52,7 +76,7 @@ export function useQuizOrchestrator() {
       const promptText = getPromptTemplate(tutorialState.topicInput)
       await navigator.clipboard.writeText(promptText)
       toast.success("Template copied!", {
-        description: "You can now paste this to your AI assistant",
+        description: "You can now paste this into your AI assistant",
         duration: 2000,
       })
       tutorialState.setTopicInput("")
@@ -66,51 +90,14 @@ export function useQuizOrchestrator() {
     }
   }
 
-  /**
-   * Generate the question template directly via the Gemini API
-   */
-  async function handleGenerateTemplate() {
-    if (!tutorialState.topicInput.trim()) {
-      toast.error("Please enter a topic", { description: "The topic cannot be empty", duration: 2000 })
-      return
-    }
-    setIsGeneratingTemplate(true)
-    try {
-      const basePrompt = getPromptTemplate(tutorialState.topicInput)
-      console.log("handleGenerateTemplate: sending prompt to Gemini:", basePrompt)
-      const aiResponse = await generateTemplate(basePrompt, selectedModel)
-      // Update the prompt input and derived output
-      promptInputState.setPromptInput(aiResponse)
-      const parsed = promptInputState.handlePromptInput(aiResponse)
-      if (parsed) {
-        quizState.setOutput(parsed)
-        originalOutputRef.current = parsed
-        masteryState.resetMastery() // Reset mastery on new template
-        tutorialState.setTopicInput("")
-        tutorialState.setIsTopicModalOpen(false)
-        toast.success("Template generated!", { description: "Questions generated successfully", duration: 2000 })
-      } else {
-        toast.error("Failed to parse AI response", { description: "Please try again" })
-      }
-    } catch (error) {
-      console.error("Error generating template:", error)
-      // Show the actual error message to the user for debugging
-      const errMsg = error instanceof Error ? error.message : JSON.stringify(error)
-      toast.error("Failed to generate template", {
-        description: errMsg,
-        duration: 4000,
-      })
-    } finally {
-      setIsGeneratingTemplate(false)
-    }
-  }
+  const { setOutput } = quizState
 
   // Watch for changes in promptInputState.output and update quizState
   useEffect(() => {
     if (promptInputState.output) {
-      quizState.setOutput(promptInputState.output)
+      setOutput(promptInputState.output)
     }
-  }, [promptInputState.output])
+  }, [promptInputState.output, setOutput])
 
   function handlePromptInput(value: string) {
     const result = promptInputState.handlePromptInput(value)
@@ -118,6 +105,27 @@ export function useQuizOrchestrator() {
       quizState.setOutput(result)
       originalOutputRef.current = result
       masteryState.resetMastery() // Reset mastery on new paste
+    }
+  }
+
+  async function handlePastePromptFromClipboard() {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (!text.trim()) {
+        toast.error("Clipboard is empty", { duration: 2000 })
+        return
+      }
+      promptInputState.setPromptInput(text)
+      const result = promptInputState.handlePromptInput(text)
+      if (result) {
+        quizState.setOutput(result)
+        originalOutputRef.current = result
+        masteryState.resetMastery()
+        toast.success("Questions loaded from clipboard!", { duration: 2000 })
+      }
+    } catch (err) {
+      console.error("Clipboard read error:", err)
+      toast.error("Could not read from clipboard. Please paste manually.", { duration: 2500 })
     }
   }
 
@@ -143,6 +151,15 @@ export function useQuizOrchestrator() {
     masteryState.resetMastery()
   }
 
+  function handleStartFresh() {
+    clearSavedSession()
+    handleReset()
+    toast.success("Started fresh!", {
+      description: "All stored questions and answers cleared.",
+      duration: 2000
+    })
+  }
+
   function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>, isCodeMode: boolean) {
     if (e.key === 'Enter') {
       if (isCodeMode || e.shiftKey) {
@@ -166,17 +183,17 @@ export function useQuizOrchestrator() {
     try {
       const text = await navigator.clipboard.readText()
       aiFeedbackState.setAIFeedback(text)
+      aiFeedbackState.setActiveTab('feedback')
       
       // Auto-apply to mastery progress
-      if (originalOutputRef.current) {
-        const parsed = aiFeedbackState.parseAIFeedback(text, quizState.userAnswers)
-        if (parsed.length > 0) {
-          masteryState.updateMastery(parsed, originalOutputRef.current.questions)
-        }
+      const questionsList = originalOutputRef.current?.questions || quizState.output?.questions || []
+      const parsed = aiFeedbackState.parseAIFeedback(text, quizState.userAnswers, questionsList)
+      if (parsed.length > 0 && questionsList.length > 0) {
+        masteryState.updateMastery(parsed, questionsList)
       }
 
       toast.success("Feedback pasted!", {
-        description: "AI feedback has been successfully pasted and applied.",
+        description: "AI feedback has been successfully applied to your progress.",
         duration: 2000,
       })
     } catch (error) {
@@ -192,44 +209,6 @@ export function useQuizOrchestrator() {
     }
   }
 
-  /**
-   * Generate feedback evaluation directly via the Gemini API
-   */
-  async function handleGenerateFeedback() {
-    if (!quizState.userAnswers.length || !quizState.output) {
-      toast.error('No answers available to evaluate')
-      return
-    }
-    setIsGeneratingFeedback(true)
-    try {
-      const evalPrompt = aiFeedbackState.generateAIPrompt(
-        quizState.userAnswers.map(a => ({ ...a, type: a.questionType || QuestionType.OPEN_ENDED })),
-        // CRITICAL: We pass originalOutputRef.current instead of quizState.output here
-        // so that the AI evaluates against the FULL context and retains correct original numbering
-        // Actually no, userAnswers only has answers for the subset.
-        // If we want the AI to retain the correct question numbers, we must explicitly
-        // ensure the evalPrompt includes the original question numbers.
-        quizState.output
-      )
-      const aiResponse = await generateTemplate(evalPrompt, selectedModel)
-      aiFeedbackState.setAIFeedback(aiResponse)
-      toast.success('Feedback generated!', { description: 'AI evaluation completed', duration: 2000 })
-
-      // Compute mastery immediately on generation
-      const parsed = aiFeedbackState.parseAIFeedback(aiResponse, quizState.userAnswers)
-      if (originalOutputRef.current) {
-        masteryState.updateMastery(parsed, originalOutputRef.current.questions)
-      }
-    } catch (error) {
-      console.error('Error generating feedback:', error)
-      const errMsg = error instanceof Error ? error.message : JSON.stringify(error)
-      toast.error('Failed to generate feedback', { description: errMsg, duration: 4000 })
-    } finally {
-      setIsGeneratingFeedback(false)
-    }
-  }
-
-
   function handleRetryFailed() {
     if (!originalOutputRef.current) return
 
@@ -242,11 +221,6 @@ export function useQuizOrchestrator() {
       toast.success("All questions mastered!")
       return
     }
-
-    // IMPORTANT: When retrying, we MUST NOT reset userAnswers to [],
-    // otherwise the generateFinalOutput won't have the history of the mastered questions.
-    // Actually, we DO want to reset userAnswers for the new round, but we need
-    // the UI to cleanly transition to the quiz mode again.
     
     // Reset quiz state and subset the questions
     quizState.setOutput({ questions: failedQuestions })
@@ -283,17 +257,16 @@ export function useQuizOrchestrator() {
     // Additional functions
     copyToClipboard,
     handleReset,
+    handleStartFresh,
+    handleJumpToQuestion: quizState.handleJumpToQuestion,
     handleKeyPress,
     handleKeyPressStart,
     handlePasteFeedback,
+    handlePastePromptFromClipboard,
     handlePromptInput,
     handleCopyBasePrompt,
     handleTopicSubmit,
-    handleGenerateTemplate,
-    isGeneratingTemplate,
     isCodeMode: quizState.isCodeMode,
-    setIsCodeMode: quizState.setIsCodeMode,
-    handleGenerateFeedback,
-    isGeneratingFeedback
+    setIsCodeMode: quizState.setIsCodeMode
   }
 }

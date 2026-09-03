@@ -1,8 +1,10 @@
-export const SunIcon = (props: any) => (
+import React from 'react'
+
+export const SunIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     aria-hidden="true"
     fill="none"
-    focusabel="false"
+    focusable="false"
     height="1em"
     role="presentation"
     viewBox="0 0 24 24"
@@ -75,11 +77,11 @@ export const SunIcon = (props: any) => (
   </svg>
 )
 
-export const MoonIcon = (props: any) => (
+export const MoonIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     aria-hidden="true"
     fill="none"
-    focusabel="false"
+    focusable="false"
     height="1em"
     role="presentation"
     viewBox="0 0 24 24"

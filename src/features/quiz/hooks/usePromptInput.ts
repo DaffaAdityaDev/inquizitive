@@ -1,24 +1,32 @@
 import { useState } from 'react'
-import { QuestionData, ErrorType, Question, QuestionType, MultipleChoiceQuestion, OpenEndedQuestion } from '../../../shared/types'
+import { QuestionData, ErrorType, Question, QuestionType, MultipleChoiceQuestion } from '../../../shared/types'
+import { loadSavedSession } from './useQuizPersistence'
 
 export function usePromptInput() {
-  const [promptInput, setPromptInput] = useState('')
+  const [promptInput, setPromptInput] = useState(() => {
+    const saved = loadSavedSession()
+    return saved?.promptInput || ''
+  })
   const [error, setError] = useState<ErrorType | null>(null)
-  const [output, setOutput] = useState<QuestionData | null>(null)
+  const [output, setOutput] = useState<QuestionData | null>(() => {
+    const saved = loadSavedSession()
+    return saved?.output || null
+  })
 
   const validateQuestion = (q: Question): boolean => {
     const baseValid = 
-      typeof q.number === 'number' &&
-      typeof q.question === 'string'
+      (typeof q.number === 'number' || typeof q.number === 'string') &&
+      typeof q.question === 'string' &&
+      q.question.trim().length > 0
 
-    if (q.type === QuestionType.MULTIPLE_CHOICE) {
+    const rawType = q.type ? String(q.type).toUpperCase() : ''
+    if (rawType === QuestionType.MULTIPLE_CHOICE || ('options' in q && Array.isArray((q as MultipleChoiceQuestion).options))) {
       return baseValid &&
         Array.isArray((q as MultipleChoiceQuestion).options) &&
-        typeof (q as MultipleChoiceQuestion).correct_option === 'string' &&
-        typeof (q as MultipleChoiceQuestion).explanations === 'object'
+        (q as MultipleChoiceQuestion).options.length > 0
     }
 
-    return baseValid && typeof (q as OpenEndedQuestion).expected_answer === 'string'
+    return baseValid
   }
 
   const extractJsonFromPrompt = (prompt: string): QuestionData | null => {
@@ -37,17 +45,10 @@ export function usePromptInput() {
           // Remove any surrounding tags or code block markers
           jsonString = jsonString.replace(/<\/?json>|<\/?output>|```json|```/g, '').trim()
           
-          // Additional cleaning steps
+          // Additional cleaning steps: strip unprintable control characters, but PRESERVE \t, \n, \r
           jsonString = jsonString
-            .replace(/\\n/g, '\\n')
-            .replace(/\\'/g, "\\'")
-            .replace(/\\"/g, '\\"')
-            .replace(/\\&/g, '\\&')
-            .replace(/\\r/g, '\\r')
-            .replace(/\\t/g, '\\t')
-            .replace(/\\b/g, '\\b')
-            .replace(/\\f/g, '\\f')
-            .replace(/[\u0000-\u0019]+/g, '')
+            // eslint-disable-next-line no-control-regex
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
           
           try {
             const parsed = JSON.parse(jsonString)
@@ -72,12 +73,21 @@ export function usePromptInput() {
               return null
             }
 
-            // Return validated question data
+            // Return validated question data with normalized types
             return {
-              questions: parsed.questions.map((q: Question) => ({
-                ...q,
-                type: q.type || QuestionType.OPEN_ENDED // Default to open-ended if not specified
-              }))
+              questions: parsed.questions.map((q: Question, idx: number) => {
+                const rawType = q.type ? String(q.type).toUpperCase() : ''
+                const inferredType = (rawType === QuestionType.MULTIPLE_CHOICE || ('options' in q && Array.isArray((q as MultipleChoiceQuestion).options)))
+                  ? QuestionType.MULTIPLE_CHOICE
+                  : QuestionType.OPEN_ENDED
+
+                return {
+                  ...q,
+                  number: Number(q.number) || idx + 1,
+                  type: inferredType,
+                  explanations: (q as MultipleChoiceQuestion).explanations || {}
+                }
+              })
             }
           } catch (error) {
             console.error('Error parsing JSON content:', error)

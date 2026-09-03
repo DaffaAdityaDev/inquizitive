@@ -1,16 +1,38 @@
 import { useState } from 'react'
 import { QuestionData, UserAnswer, QuestionType, ErrorType } from '../../../shared/types'
 import { toast } from 'sonner'
+import { loadSavedSession } from './useQuizPersistence'
 
 export function useQuizState() {
-  // Core quiz state
-  const [output, setOutput] = useState<QuestionData | null>(null)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([])
-  const [currentAnswer, setCurrentAnswer] = useState('')
-  const [isQuizMode, setIsQuizMode] = useState(false)
-  const [isCompleted, setIsCompleted] = useState(false)
-  const [isCodeMode, setIsCodeMode] = useState(false)
+  // Core quiz state: synchronously restored from saved session on initial render
+  const [output, setOutput] = useState<QuestionData | null>(() => {
+    const saved = loadSavedSession()
+    return saved?.output || null
+  })
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => {
+    const saved = loadSavedSession()
+    return saved?.currentQuestionIndex ?? 0
+  })
+  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>(() => {
+    const saved = loadSavedSession()
+    return saved?.userAnswers || []
+  })
+  const [currentAnswer, setCurrentAnswer] = useState(() => {
+    const saved = loadSavedSession()
+    return saved?.currentAnswer || ''
+  })
+  const [isQuizMode, setIsQuizMode] = useState(() => {
+    const saved = loadSavedSession()
+    return !!saved?.isQuizMode
+  })
+  const [isCompleted, setIsCompleted] = useState(() => {
+    const saved = loadSavedSession()
+    return !!saved?.isCompleted
+  })
+  const [isCodeMode, setIsCodeMode] = useState(() => {
+    const saved = loadSavedSession()
+    return !!saved?.isCodeMode
+  })
   const [error, setError] = useState<ErrorType | null>(null)
 
   const handleStartQuiz = () => {
@@ -22,9 +44,23 @@ export function useQuizState() {
       return
     }
     
-    setCurrentQuestionIndex(0)
-    setUserAnswers([])
-    setCurrentAnswer('')
+    // Resume at first unanswered question if answers already exist, otherwise start at 0
+    let startIndex = 0
+    if (userAnswers.length > 0) {
+      const firstUnansweredIndex = output.questions.findIndex(
+        q => !userAnswers.some(a => a.number === q.number)
+      )
+      if (firstUnansweredIndex !== -1) {
+        startIndex = firstUnansweredIndex
+      }
+    } else {
+      setUserAnswers([])
+    }
+
+    setCurrentQuestionIndex(startIndex)
+    const activeQuestion = output.questions[startIndex]
+    const existingAnswer = userAnswers.find(a => a.number === activeQuestion?.number)
+    setCurrentAnswer(existingAnswer?.provided_answer || '')
     setIsQuizMode(true)
     setError(null)
   }
@@ -59,22 +95,14 @@ export function useQuizState() {
   }
 
   const validateAnswer = (answer: string, questionType: QuestionType) => {
-    if (questionType === QuestionType.MULTIPLE_CHOICE) {
-      if (!answer.match(/^[A-D]\)/)) {
-        setError({
-          message: "Please select one of the provided options",
-          type: 'validation'
-        })
-        return false
-      }
-    } else {
-      if (!answer.trim()) {
-        setError({
-          message: "Please provide an answer",
-          type: 'validation'
-        })
-        return false
-      }
+    if (!answer || !answer.trim()) {
+      setError({
+        message: questionType === QuestionType.MULTIPLE_CHOICE
+          ? "Please select an option to continue"
+          : "Please provide an answer before advancing",
+        type: 'validation'
+      })
+      return false
     }
     return true
   }
@@ -102,13 +130,33 @@ export function useQuizState() {
 
     // Move to next question or complete
     if (currentQuestionIndex < output.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1)
-      setCurrentAnswer('')
+      const nextIndex = currentQuestionIndex + 1
+      const nextQuestion = output.questions[nextIndex]
+      const existingNextAnswer = userAnswers.find(a => a.number === nextQuestion?.number)
+      
+      setCurrentQuestionIndex(nextIndex)
+      setCurrentAnswer(existingNextAnswer?.provided_answer || '')
       setError(null)
     } else {
       setIsCompleted(true)
       setIsQuizMode(false)
     }
+  }
+
+  const handleJumpToQuestion = (targetIndex: number) => {
+    if (!output?.questions || targetIndex < 0 || targetIndex >= output.questions.length) return
+    if (targetIndex === currentQuestionIndex) return
+
+    // Auto-save current answer if provided
+    if (currentAnswer.trim()) {
+      handleSaveAnswer()
+    }
+
+    setCurrentQuestionIndex(targetIndex)
+    const targetQuestion = output.questions[targetIndex]
+    const targetAnswer = userAnswers.find(a => a.number === targetQuestion.number)
+    setCurrentAnswer(targetAnswer?.provided_answer || '')
+    setError(null)
   }
 
   const handleSaveAnswer = () => {
@@ -140,16 +188,19 @@ export function useQuizState() {
     setIsCompleted(false)
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, isCodeMode: boolean) => {
-    if (e.key === 'Enter') {
-      if (isCodeMode || e.shiftKey) {
-        // In code mode or with shift key, allow new lines
-        return
-      } else {
-        // In normal mode without shift key, go to next question
-        e.preventDefault()
-        handleNextQuestion()
-      }
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, _isCodeMode: boolean) => {
+    // Ctrl+Enter or Cmd+Enter advances immediately
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      handleNextQuestion()
+      return
+    }
+
+    // For single-line inputs, Enter advances; textareas allow normal newlines
+    const isTextarea = (e.target as HTMLElement)?.tagName === 'TEXTAREA'
+    if (e.key === 'Enter' && !isTextarea) {
+      e.preventDefault()
+      handleNextQuestion()
     }
   }
 
@@ -200,6 +251,7 @@ export function useQuizState() {
     getCurrentProgress,
     copyToClipboard,
     handlePreviousQuestion,
+    handleJumpToQuestion,
     isQuestionAnswered,
     areAllQuestionsAnswered
   }
