@@ -60,6 +60,7 @@ export function QuizPage() {
     handlePromptInput,
     // AI Feedback state
     aiFeedback,
+    localFeedback,
     activeTab,
     setActiveTab,
     handlePasteFeedback,
@@ -100,12 +101,15 @@ export function QuizPage() {
     ? 'completed'
     : 'quiz'
 
-  const isMastered = masteredCount === originalTotalCount
+  const isMastered = originalTotalCount > 0 && masteredCount === originalTotalCount
+  const hasFeedback = !!aiFeedback || (localFeedback && localFeedback.length > 0)
 
   const parsedFeedback = useMemo(() => {
-    if (!aiFeedback) return []
-    return parseAIFeedback(aiFeedback, userAnswers, output?.questions)
-  }, [aiFeedback, userAnswers, output?.questions, parseAIFeedback])
+    if (aiFeedback) {
+      return parseAIFeedback(aiFeedback, userAnswers, output?.questions)
+    }
+    return localFeedback || []
+  }, [aiFeedback, localFeedback, userAnswers, output?.questions, parseAIFeedback])
 
   return (
     <div className="w-full">
@@ -498,7 +502,7 @@ export function QuizPage() {
                           {!isMastered && (
                             <div className="flex flex-col gap-2 pt-2">
                               <p className="text-tiny text-warning-600 leading-tight">
-                                You still have <span className="font-bold">{originalTotalCount - masteredCount}</span> questions left to master.
+                                You still have <span className="font-bold">{originalTotalCount - masteredCount}</span> {originalTotalCount - masteredCount === 1 ? 'question' : 'questions'} left to master.
                               </p>
                               <motion.div whileTap={{ scale: 0.96 }}>
                                 <Button 
@@ -509,7 +513,7 @@ export function QuizPage() {
                                   startContent={<ArrowPathIcon className="w-4 h-4" />}
                                   onClick={handleRetryFailed}
                                 >
-                                  Retry Failed
+                                  Retry Failed ({originalTotalCount - masteredCount})
                                 </Button>
                               </motion.div>
                             </div>
@@ -612,17 +616,17 @@ export function QuizPage() {
                       
                       <Tab
                         key="feedback"
-                        isDisabled={!aiFeedback}
+                        isDisabled={!hasFeedback}
                         title={
                           <div className="flex items-center space-x-2">
                             <CheckCircleIcon className="w-4 h-4" />
                             <span>Analysis</span>
-                            {aiFeedback && <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
+                            {hasFeedback && <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
                           </div>
                         }
                       >
                         <div className="p-6 space-y-6">
-                          {!aiFeedback ? (
+                          {!hasFeedback ? (
                             <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                               <div className="p-3 bg-default-100 rounded-full">
                                 <AcademicCapIcon className="w-8 h-8 text-default-400" />

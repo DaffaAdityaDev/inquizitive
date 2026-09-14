@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuizState } from './useQuizState'
 import { usePromptInput } from './usePromptInput'
 import { useAIFeedback } from '../../feedback'
@@ -6,8 +6,9 @@ import { useTutorialAndModals } from './useTutorialAndModals'
 import { useQuestionType } from '../../prompts'
 import { useMasteryTracking } from '../../mastery'
 import { toast } from 'sonner'
-import { QuestionData } from '../../../shared/types'
-import { saveSession, clearSavedSession } from './useQuizPersistence'
+import { QuestionData, ParsedFeedback } from '../../../shared/types'
+import { saveSession, loadSavedSession, clearSavedSession } from './useQuizPersistence'
+import { evaluateQuizAnswers } from '../utils/mcqEvaluator'
 
 export function useQuizOrchestrator() {
   // Add questionType state
@@ -24,14 +25,58 @@ export function useQuizOrchestrator() {
   const tutorialState = useTutorialAndModals()
   const masteryState = useMasteryTracking()
 
-  // Keep a reference to the initial full question set (synchronized on mount)
-  const originalOutputRef = useRef<QuestionData | null>(quizState.output)
+  // Keep a reference to the initial full question set (synchronized on mount / restored from storage)
+  const savedSession = loadSavedSession()
+  const originalOutputRef = useRef<QuestionData | null>(
+    savedSession?.originalOutput || quizState.output
+  )
+
+  // Local evaluation state for instantaneous feedback (especially Multiple Choice)
+  const [localFeedback, setLocalFeedback] = useState<ParsedFeedback[]>(() => {
+    return savedSession?.localFeedback || []
+  })
+
+  // Ensure originalOutputRef stays populated if output becomes available
+  useEffect(() => {
+    if (!originalOutputRef.current && quizState.output) {
+      originalOutputRef.current = quizState.output
+    }
+  }, [quizState.output])
+
+  // Automatically evaluate Multiple Choice questions locally when quiz completes
+  useEffect(() => {
+    if (quizState.isCompleted && originalOutputRef.current?.questions && quizState.userAnswers.length > 0) {
+      const evaluation = evaluateQuizAnswers(
+        originalOutputRef.current.questions,
+        quizState.userAnswers,
+        masteryState.masteryMap
+      )
+
+      if (evaluation.hasEvaluatedItems) {
+        setLocalFeedback(prev => {
+          const updated = [...prev]
+          for (const item of evaluation.localFeedback) {
+            const idx = updated.findIndex(f => f.number === item.number)
+            if (idx !== -1) {
+              updated[idx] = item
+            } else {
+              updated.push(item)
+            }
+          }
+          return updated.sort((a, b) => a.number - b.number)
+        })
+
+        masteryState.applyLocalMastery(evaluation.masteryMapUpdates, originalOutputRef.current.questions)
+      }
+    }
+  }, [quizState.isCompleted, quizState.userAnswers])
 
   // Auto-save active session to localStorage whenever state changes
   useEffect(() => {
     if (quizState.output || promptInputState.promptInput) {
       saveSession({
         output: quizState.output,
+        originalOutput: originalOutputRef.current,
         userAnswers: quizState.userAnswers,
         currentQuestionIndex: quizState.currentQuestionIndex,
         currentAnswer: quizState.currentAnswer,
@@ -40,6 +85,7 @@ export function useQuizOrchestrator() {
         isCodeMode: quizState.isCodeMode,
         promptInput: promptInputState.promptInput,
         aiFeedback: aiFeedbackState.aiFeedback,
+        localFeedback,
         masteryMap: masteryState.masteryMap,
         currentRound: masteryState.currentRound
       })
@@ -54,6 +100,7 @@ export function useQuizOrchestrator() {
     quizState.isCodeMode,
     promptInputState.promptInput,
     aiFeedbackState.aiFeedback,
+    localFeedback,
     masteryState.masteryMap,
     masteryState.currentRound
   ])
@@ -104,6 +151,7 @@ export function useQuizOrchestrator() {
     if (result) {
       quizState.setOutput(result)
       originalOutputRef.current = result
+      setLocalFeedback([])
       masteryState.resetMastery() // Reset mastery on new paste
     }
   }
@@ -120,6 +168,7 @@ export function useQuizOrchestrator() {
       if (result) {
         quizState.setOutput(result)
         originalOutputRef.current = result
+        setLocalFeedback([])
         masteryState.resetMastery()
         toast.success("Questions loaded from clipboard!", { duration: 2000 })
       }
@@ -148,6 +197,7 @@ export function useQuizOrchestrator() {
     quizState.setIsQuizMode(false)
     quizState.setIsCompleted(false)
     aiFeedbackState.setAIFeedback('')
+    setLocalFeedback([])
     masteryState.resetMastery()
   }
 
@@ -212,6 +262,16 @@ export function useQuizOrchestrator() {
   function handleRetryFailed() {
     if (!originalOutputRef.current) return
 
+    // Guard: Check if any evaluations exist
+    const evaluatedCount = Object.keys(masteryState.masteryMap).length
+    if (evaluatedCount === 0 && !aiFeedbackState.aiFeedback) {
+      toast.error("Evaluation required", {
+        description: "Please paste AI feedback first to evaluate your answers before retrying.",
+        duration: 3000
+      })
+      return
+    }
+
     // Get the current failed questions from the mastery map vs the original full set
     const failedQuestions = originalOutputRef.current.questions.filter(
       q => !masteryState.masteryMap[q.number]?.isMastered
@@ -232,7 +292,7 @@ export function useQuizOrchestrator() {
     quizState.setIsCompleted(false)
     quizState.setIsQuizMode(true)
     
-    // Clear feedback so the tabs reset
+    // Clear external AI feedback so the tabs reset for the new attempt
     aiFeedbackState.setAIFeedback('')
     aiFeedbackState.setActiveTab('prompt')
     toast.success(`Retrying ${failedQuestions.length} questions`)
@@ -245,6 +305,8 @@ export function useQuizOrchestrator() {
     ...promptInputState,
     // AI feedback state
     ...aiFeedbackState,
+    // Local feedback
+    localFeedback,
     // Tutorial state
     ...tutorialState,
     // Question type state

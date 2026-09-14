@@ -17,6 +17,20 @@ export function useMasteryTracking() {
   })
   const [isFullyMastered, setIsFullyMastered] = useState(false)
 
+  const applyLocalMastery = (
+    updates: Record<number, QuestionMastery>,
+    allQuestions: Question[]
+  ): { failedQuestions: Question[] } => {
+    const newMap: Record<number, QuestionMastery> = { ...masteryMap, ...updates }
+    const failedQuestions = allQuestions.filter(q => !newMap[q.number]?.isMastered)
+    const mastered = allQuestions.length > 0 && failedQuestions.length === 0
+
+    setMasteryMap(newMap)
+    setIsFullyMastered(mastered)
+
+    return { failedQuestions }
+  }
+
   const updateMastery = (
     feedback: ParsedFeedback[],
     allQuestions: Question[]
@@ -63,6 +77,7 @@ export function useMasteryTracking() {
     setCurrentRound,
     masteredCount,
     isFullyMastered,
+    applyLocalMastery,
     updateMastery,
     resetMastery,
   }
