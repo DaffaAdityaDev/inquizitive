@@ -4,7 +4,8 @@ import {
   MultipleChoiceQuestion, 
   UserAnswer, 
   ParsedFeedback, 
-  QuestionMastery 
+  QuestionMastery,
+  MASTERY_THRESHOLD
 } from '../../../shared/types'
 
 /**
@@ -28,13 +29,13 @@ export function isMCQAnswerCorrect(
   }
 
   // 2. Extract leading letter/number from provided answer (e.g. "A) ...", "A. ...", "A - ...", "A ")
-  const providedPrefixMatch = cleanProvided.match(/^([A-Z0-9])[\s.)\-]/i)
+  const providedPrefixMatch = cleanProvided.match(/^([A-Z0-9])[\s.)-]/i)
   if (providedPrefixMatch && providedPrefixMatch[1].toUpperCase() === cleanCorrect.toUpperCase()) {
     return true
   }
 
   // 3. If correctOption itself has a prefix (e.g. "A)"), extract it
-  const correctPrefixMatch = cleanCorrect.match(/^([A-Z0-9])[\s.)\-]/i)
+  const correctPrefixMatch = cleanCorrect.match(/^([A-Z0-9])[\s.)-]/i)
   const normalizedCorrectLetter = (correctPrefixMatch ? correctPrefixMatch[1] : cleanCorrect).toUpperCase()
   if (providedPrefixMatch && providedPrefixMatch[1].toUpperCase() === normalizedCorrectLetter) {
     return true
@@ -46,7 +47,7 @@ export function isMCQAnswerCorrect(
     const matchedOption = options.find(opt => {
       const optTrim = opt.trim()
       if (optTrim.toLowerCase() === cleanCorrect.toLowerCase()) return true
-      const optPrefix = optTrim.match(/^([A-Z0-9])[\s.)\-]/i)
+      const optPrefix = optTrim.match(/^([A-Z0-9])[\s.)-]/i)
       return optPrefix && optPrefix[1].toUpperCase() === normalizedCorrectLetter
     })
 
@@ -114,7 +115,7 @@ export function evaluateQuizAnswers(
         questionNumber: question.number,
         bestScore,
         attempts,
-        isMastered: bestScore >= 85
+        isMastered: bestScore >= MASTERY_THRESHOLD
       }
 
       // Resolve full expected answer text
@@ -122,7 +123,7 @@ export function evaluateQuizAnswers(
       if (mcq.options && mcq.options.length > 0) {
         const matchingOpt = mcq.options.find(opt => {
           const optTrim = opt.trim()
-          const optPrefix = optTrim.match(/^([A-Z0-9])[\s.)\-]/i)
+          const optPrefix = optTrim.match(/^([A-Z0-9])[\s.)-]/i)
           return (
             optTrim.toLowerCase() === mcq.correct_option.trim().toLowerCase() ||
             (optPrefix && optPrefix[1].toUpperCase() === mcq.correct_option.trim().toUpperCase())

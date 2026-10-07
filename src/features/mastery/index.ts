@@ -1,2 +1,2 @@
-export * from './hooks/useMasteryTracking'
 export * from './utils/gradeParser'
+export * from './utils/masteryUpdates'

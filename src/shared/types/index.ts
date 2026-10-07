@@ -70,6 +70,8 @@ export interface ParsedFeedback {
   options?: string[]
   evaluation: string
   grade: string
+  /** Numeric 0-100 score; preferred over parsing `grade` when present. */
+  score?: number
   resources?: string[]
   explanations?: Record<string, string>
   isCodeQuestion?: boolean

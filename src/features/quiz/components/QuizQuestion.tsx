@@ -2,12 +2,21 @@ import { Textarea } from "@nextui-org/react"
 import { MultipleChoiceInput } from "./MultipleChoiceInput"
 import { QuestionType } from "../../../shared/types"
 import { motion } from "framer-motion"
+import { isImeComposing } from "../../../shared/utils/keyboard"
+
+const kbdClass = "px-1 py-0.5 bg-default-100 rounded border border-default-200 font-mono"
+
+// Each question remounts the textarea; refocus it on keyboard devices, but don't pop up a phone keyboard
+function prefersAutoFocus() {
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: fine)').matches
+}
 
 interface QuizQuestionProps {
   type: QuestionType
   value: string
   onChange: (value: string) => void
   onKeyDown: (e: React.KeyboardEvent) => void
+  onSubmit: () => void
   options?: string[]
   isCodeMode?: boolean
 }
@@ -17,6 +26,7 @@ export function QuizQuestion({
   value, 
   onChange, 
   onKeyDown,
+  onSubmit,
   options = [],
   isCodeMode = false
 }: QuizQuestionProps) {
@@ -26,7 +36,7 @@ export function QuizQuestion({
         options={options}
         value={value}
         onChange={onChange}
-        onKeyDown={onKeyDown}
+        onSubmit={onSubmit}
       />
     )
   }
@@ -49,6 +59,13 @@ export function QuizQuestion({
       return
     }
 
+    // The session hook leaves Enter as a newline in code mode, so Ctrl/Cmd+Enter is the way forward there
+    if (isCodeMode && e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !isImeComposing(e)) {
+      e.preventDefault()
+      onSubmit()
+      return
+    }
+
     onKeyDown(e as unknown as React.KeyboardEvent)
   }
 
@@ -63,11 +80,13 @@ export function QuizQuestion({
         value={value}
         onValueChange={onChange}
         onKeyDown={handleTextareaKeyDown}
+        autoFocus={prefersAutoFocus()}
         minRows={isCodeMode ? 8 : 5}
         aria-label="Answer input"
         variant="faded"
         color="primary"
         size="lg"
+        className="min-w-0"
         classNames={{
           input: isCodeMode
             ? "font-mono text-sm sm:text-base leading-relaxed text-default-900 tab-size-2"
@@ -77,17 +96,25 @@ export function QuizQuestion({
             : "border-2 hover:border-primary/50 focus-within:!border-primary bg-default-50 transition-colors py-4 px-4 shadow-sm",
         }}
       />
-      {isCodeMode && (
-        <div className="flex items-center justify-between px-1 text-tiny text-default-400 font-mono">
-          <span className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1 text-tiny text-default-400 select-none">
+        {isCodeMode ? (
+          <span className="flex items-center gap-1 font-mono">
             <span className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />
-            Code Mode Active
+            Code Mode
           </span>
-          <span>
-            <kbd className="px-1 py-0.5 bg-default-100 rounded border border-default-200">Tab</kbd> = 2 spaces • <kbd className="px-1 py-0.5 bg-default-100 rounded border border-default-200">Shift+Enter</kbd> = newline
-          </span>
-        </div>
-      )}
+        ) : <span />}
+        <span className="flex flex-wrap items-center gap-1">
+          {isCodeMode ? (
+            <>
+              <kbd className={kbdClass}>Ctrl+Enter</kbd> = next · <kbd className={kbdClass}>Tab</kbd> = 2 spaces
+            </>
+          ) : (
+            <>
+              <kbd className={kbdClass}>Enter</kbd> = next · <kbd className={kbdClass}>Shift+Enter</kbd> = new line
+            </>
+          )}
+        </span>
+      </div>
     </motion.div>
   )
 }

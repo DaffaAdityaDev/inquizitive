@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import { Tooltip } from "@nextui-org/react"
 import { Question, UserAnswer } from "../../../shared/types"
 import { CheckIcon } from "@heroicons/react/24/outline"
@@ -16,13 +17,26 @@ export function QuestionNavigator({
   userAnswers,
   onJump
 }: QuestionNavigatorProps) {
+  const scrollerRef = useRef<HTMLDivElement>(null)
+
+  // Keep the current pill visible in the horizontal strip without scrolling the page
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    const current = scroller?.querySelector<HTMLElement>('[aria-current="step"]')
+    if (!scroller || !current) return
+    const left = current.offsetLeft
+    if (left < scroller.scrollLeft || left + current.offsetWidth > scroller.scrollLeft + scroller.clientWidth) {
+      scroller.scrollTo({ left: left - scroller.clientWidth / 2 + current.offsetWidth / 2, behavior: 'smooth' })
+    }
+  }, [currentIndex])
+
   const answeredSet = new Set(userAnswers.map(a => a.number))
   const total = questions.length
   const answeredCount = questions.filter(q => answeredSet.has(q.number)).length
 
   return (
-    <div className="w-full bg-content2/50 backdrop-blur-md rounded-2xl p-3 sm:p-4 border border-divider shadow-sm space-y-2">
-      <div className="flex justify-between items-center px-1 text-xs">
+    <div className="w-full min-w-0 bg-content2/50 backdrop-blur-md rounded-2xl px-2 py-1.5 sm:p-4 border border-divider shadow-sm sm:space-y-2">
+      <div className="hidden sm:flex justify-between items-center px-1 text-xs">
         <span className="font-bold text-default-600 tracking-wider uppercase">
           Question Navigator
         </span>
@@ -31,7 +45,7 @@ export function QuestionNavigator({
         </span>
       </div>
 
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-1 scrollbar-none">
+      <div ref={scrollerRef} className="relative flex items-center gap-1.5 sm:gap-2 overflow-x-auto px-1 py-1.5 scrollbar-none">
         {questions.map((q, idx) => {
           const isCurrent = idx === currentIndex
           const isAnswered = answeredSet.has(q.number)
@@ -39,7 +53,7 @@ export function QuestionNavigator({
           return (
             <Tooltip 
               key={q.number || idx} 
-              content={`Q${idx + 1}: ${isCurrent ? 'Current' : isAnswered ? 'Answered' : 'Unanswered'}`}
+              content={`Q${q.number}: ${isCurrent ? 'Current' : isAnswered ? 'Answered' : 'Unanswered'}`}
               delay={300}
             >
               <motion.button
@@ -53,7 +67,8 @@ export function QuestionNavigator({
                     ? 'bg-success-100/70 dark:bg-success-950/40 text-success-800 dark:text-success-300 border-success-300/80 dark:border-success-800/60 font-semibold hover:bg-success-200/60'
                     : 'bg-default-100/80 dark:bg-zinc-800/70 text-default-600 dark:text-zinc-300 border-default-200 dark:border-zinc-700/80 hover:bg-default-200/70'
                 }`}
-                aria-label={`Jump to question ${idx + 1}`}
+                aria-label={`Jump to question ${q.number}`}
+                aria-current={isCurrent ? 'step' : undefined}
               >
                 {/* Framer Motion FLIP Shared Pill Slider */}
                 {isCurrent && (
@@ -63,7 +78,7 @@ export function QuestionNavigator({
                     transition={{ type: "spring", stiffness: 450, damping: 35 }}
                   />
                 )}
-                <span className="relative z-10">{idx + 1}</span>
+                <span className="relative z-10">{q.number}</span>
                 {isAnswered && !isCurrent && (
                   <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-success-500 text-white rounded-full flex items-center justify-center shadow-xs z-10">
                     <CheckIcon className="w-2.5 h-2.5 stroke-[3]" />

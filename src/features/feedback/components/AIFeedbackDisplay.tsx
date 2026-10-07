@@ -1,10 +1,20 @@
+import { useEffect, useState } from "react"
 import { Card, CardHeader, CardBody, Chip } from "@nextui-org/react"
-import { ParsedFeedback } from "../../../shared/types"
-import { parseGradeToScore } from "../../mastery/utils/gradeParser"
+import { ChevronDownIcon } from "@heroicons/react/24/outline"
+import { MASTERY_THRESHOLD, ParsedFeedback } from "../../../shared/types"
+import { resolveFeedbackScore } from "../../mastery/utils/masteryUpdates"
+
+/** A new object per request, so asking for the same question twice still re-focuses it. */
+export interface FeedbackFocusRequest {
+  number: number
+}
 
 interface AIFeedbackDisplayProps {
   feedback: ParsedFeedback[]
+  focusRequest?: FeedbackFocusRequest | null
 }
+
+const feedbackItemId = (number: number) => `feedback-item-${number}`
 
 const parseResourceString = (resource: string): { displayText: string; url: string | null } => {
   if (!resource) return { displayText: '', url: null };
@@ -15,34 +25,67 @@ const parseResourceString = (resource: string): { displayText: string; url: stri
     const category = linkWithCategory[1] ? `${linkWithCategory[1]}: ` : '';
     const title = linkWithCategory[2] || 'Resource Link';
     const url = linkWithCategory[3];
-    return { displayText: `${category}${title}`.replace(/[\[\]]/g, ''), url };
+    return { displayText: `${category}${title}`.replace(/[[\]]/g, ''), url };
   }
 
   // 2. Match standard markdown [Title](https://...)
   const standardLink = resource.match(/\[(.*?)\]\((https?:\/\/[^\s)]+)\)/);
   if (standardLink) {
-    return { displayText: standardLink[1].replace(/[\[\]]/g, ''), url: standardLink[2] };
+    return { displayText: standardLink[1].replace(/[[\]]/g, ''), url: standardLink[2] };
   }
 
   // 3. Match raw URL in text
   const rawUrl = resource.match(/(https?:\/\/[^\s)]+)/);
   if (rawUrl) {
-    const cleanText = resource.replace(rawUrl[0], '').replace(/[\[\]():]/g, ' ').trim();
+    const cleanText = resource.replace(rawUrl[0], '').replace(/[[\]():]/g, ' ').trim();
     return { displayText: cleanText || rawUrl[0], url: rawUrl[0] };
   }
 
   // 4. Strip stray markdown brackets from plain text
-  const cleaned = resource.replace(/[\[\]]/g, '').trim();
+  const cleaned = resource.replace(/[[\]]/g, '').trim();
   return { displayText: cleaned, url: null };
 };
 
-export function AIFeedbackDisplay({ feedback }: AIFeedbackDisplayProps) {
+export function AIFeedbackDisplay({ feedback, focusRequest }: AIFeedbackDisplayProps) {
+  const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set())
+  const [highlighted, setHighlighted] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!focusRequest) return
+    const { number } = focusRequest
+    setCollapsed(prev => {
+      if (!prev.has(number)) return prev
+      const next = new Set(prev)
+      next.delete(number)
+      return next
+    })
+    setHighlighted(number)
+    // Wait a frame so a just-mounted tab panel or just-expanded card has its final layout
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(feedbackItemId(number))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    const timer = setTimeout(() => setHighlighted(h => (h === number ? null : h)), 1800)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(timer)
+    }
+  }, [focusRequest])
+
+  function toggle(number: number) {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(number)) next.delete(number)
+      else next.add(number)
+      return next
+    })
+  }
+
   if (!feedback || feedback.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
         <p className="text-default-900 font-bold text-lg">No Feedback Items Found</p>
         <p className="text-default-500 text-sm max-w-sm">
-          Please click <strong>Paste AI Feedback</strong> on the left panel to load your evaluation results.
+          Please click <strong>Paste AI Feedback</strong> to load your evaluation results.
         </p>
       </div>
     )
@@ -51,32 +94,50 @@ export function AIFeedbackDisplay({ feedback }: AIFeedbackDisplayProps) {
   return (
     <div className="space-y-4">
       {feedback.map((item, index) => {
-        const score = parseGradeToScore(item.grade)
-        const chipColor = score >= 85 ? "success" : score >= 60 ? "warning" : "danger"
+        const score = resolveFeedbackScore(item)
+        const chipColor = score >= MASTERY_THRESHOLD ? "success" : score >= 60 ? "warning" : "danger"
+        const isCollapsed = collapsed.has(item.number)
 
         return (
-          <Card key={index} className="feedback-card-item will-change-transform w-full border border-divider shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex justify-between items-start pt-6 px-6 pb-2">
-              <div className="flex flex-col gap-1 pr-4">
-                <p className="text-xs font-bold text-primary tracking-wider uppercase">Question {item.number}</p>
-                <p className="text-base font-semibold text-default-900 dark:text-white leading-snug">{item.question}</p>
-              </div>
-              <Chip 
-                color={chipColor}
-                variant="flat"
-                size="md"
-                className="font-bold border-2 border-transparent"
+          <Card
+            key={`${item.number}-${index}`}
+            id={feedbackItemId(item.number)}
+            className={`feedback-card-item will-change-transform w-full scroll-mt-4 border shadow-sm hover:shadow-md transition-shadow ${
+              highlighted === item.number ? "border-primary ring-2 ring-primary/40" : "border-divider"
+            }`}
+          >
+            <CardHeader className="p-0">
+              <button
+                type="button"
+                onClick={() => toggle(item.number)}
+                aria-expanded={!isCollapsed}
+                className="w-full flex flex-col-reverse sm:flex-row sm:justify-between items-start gap-2 sm:gap-4 text-left pt-4 sm:pt-6 px-4 sm:px-6 pb-2"
               >
-                {item.grade}
-              </Chip>
+                <div className="flex flex-col gap-1 min-w-0">
+                  <p className="text-xs font-bold text-primary tracking-wider uppercase">Question {item.number}</p>
+                  <p className="text-base font-semibold text-default-900 dark:text-white leading-snug break-words">{item.question}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Chip
+                    color={chipColor}
+                    variant="flat"
+                    size="md"
+                    className="font-bold border-2 border-transparent max-w-full"
+                  >
+                    {item.grade}
+                  </Chip>
+                  <ChevronDownIcon className={`w-4 h-4 text-default-400 transition-transform ${isCollapsed ? "" : "rotate-180"}`} aria-hidden />
+                </div>
+              </button>
             </CardHeader>
-            <CardBody className="px-6 pb-6 pt-2">
+            {!isCollapsed && (
+            <CardBody className="px-4 sm:px-6 pb-6 pt-2">
               <div className="space-y-6">
                 <div className={`grid gap-4 pt-2 ${item.expected_answer ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                   {/* Your Answer */}
                   <div className="bg-slate-100/90 dark:bg-zinc-900/80 p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
                     <p className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Your Answer</p>
-                    <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed whitespace-pre-wrap break-words">
                       {item.provided_answer || "No answer provided"}
                     </p>
                   </div>
@@ -85,7 +146,7 @@ export function AIFeedbackDisplay({ feedback }: AIFeedbackDisplayProps) {
                   {item.expected_answer && (
                     <div className="bg-blue-50/90 dark:bg-blue-950/40 p-4 rounded-xl border-2 border-blue-300 dark:border-blue-500/50">
                       <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider mb-2">Expected Answer</p>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed whitespace-pre-wrap break-words">
                         {item.expected_answer}
                       </p>
                     </div>
@@ -95,7 +156,7 @@ export function AIFeedbackDisplay({ feedback }: AIFeedbackDisplayProps) {
                 {/* AI Evaluation */}
                 <div className="bg-slate-100/90 dark:bg-zinc-900/80 p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
                   <p className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-2">AI Evaluation</p>
-                  <p className="text-sm text-slate-900 dark:text-zinc-100 leading-relaxed font-normal">
+                  <p className="text-sm text-slate-900 dark:text-zinc-100 leading-relaxed font-normal break-words">
                     {(item.evaluation || '').replace(/【.*?】/g, '').trim()}
                   </p>
                 </div>
@@ -108,7 +169,7 @@ export function AIFeedbackDisplay({ feedback }: AIFeedbackDisplayProps) {
                       {Object.entries(item.explanations).map(([key, val]) => (
                         <div key={key} className="flex flex-col sm:flex-row gap-1 sm:gap-3">
                           <span className="font-bold text-amber-700 dark:text-amber-400 text-sm whitespace-nowrap min-w-[32px]">{key}:</span>
-                          <span className="text-sm font-normal text-slate-900 dark:text-zinc-100 leading-relaxed">
+                          <span className="text-sm font-normal text-slate-900 dark:text-zinc-100 leading-relaxed break-words min-w-0">
                             {String(val || '').replace(/【.*?】/g, '').trim()}
                           </span>
                         </div>
@@ -130,7 +191,7 @@ export function AIFeedbackDisplay({ feedback }: AIFeedbackDisplayProps) {
                             href={url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-xs font-semibold text-sky-700 dark:text-sky-300 hover:text-sky-900 dark:hover:text-white bg-sky-50 dark:bg-sky-950/50 border border-sky-300 dark:border-sky-700/80 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                            className="max-w-full break-all text-xs font-semibold text-sky-700 dark:text-sky-300 hover:text-sky-900 dark:hover:text-white bg-sky-50 dark:bg-sky-950/50 border border-sky-300 dark:border-sky-700/80 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 shadow-sm"
                           >
                             <span>{displayText}</span>
                             <span className="text-tiny opacity-80">↗</span>
@@ -146,6 +207,7 @@ export function AIFeedbackDisplay({ feedback }: AIFeedbackDisplayProps) {
                 )}
               </div>
             </CardBody>
+            )}
           </Card>
         )
       })}
