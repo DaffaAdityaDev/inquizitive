@@ -16,11 +16,15 @@ const TUTORIAL_STEPS = [
   },
   {
     title: "Answer the questions",
-    content: "Click 'Start Quiz' (or press Ctrl+Enter in the text box). Multiple choice answers are graded instantly when you finish."
+    content: "Click 'Start Quiz' (or press Ctrl+Enter in the text box). Mark how sure you are (or press 'I don't know'): a correct guess doesn't count as mastered. Multiple choice answers are graded instantly when you finish."
   },
   {
     title: "Get feedback on open-ended answers",
-    content: "If your quiz has open-ended questions, copy the evaluation prompt from the results page into the same AI chat, then paste its JSON reply back with 'Paste AI Feedback'. Use 'Retry Failed' to practise until every question is mastered."
+    content: "If your quiz has open-ended questions, copy the evaluation prompt from the results page into the same AI chat, then paste its JSON reply back with 'Paste AI Feedback'. Each result explains what was missing, with references to learn more."
+  },
+  {
+    title: "Study what you missed",
+    content: "Open the 'Study Guide' tab and copy the study prompt into your AI chat: it teaches the concepts you got wrong, with examples, practice questions and references. Then copy the next-round prompt: the AI writes new questions from your results and your learning profile. Concepts you have studied come back on the home page when they are due for review."
   }
 ]
 

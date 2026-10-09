@@ -45,7 +45,8 @@ export function selectHasFeedback(state: QuizSessionState): boolean {
 }
 
 export function selectResultsTab(state: QuizSessionState): ResultsTab {
-  return selectNeedsAIEval(state) ? state.activeTab : 'feedback'
+  // The evaluation tab is disabled when there is nothing for the AI to grade
+  return state.activeTab === 'prompt' && !selectNeedsAIEval(state) ? 'feedback' : state.activeTab
 }
 
 /** Local MCQ grades are authoritative; AI feedback only fills in the remaining items. */

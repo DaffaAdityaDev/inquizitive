@@ -5,6 +5,7 @@ import {
   ArrowPathIcon,
   CheckCircleIcon,
   AcademicCapIcon,
+  BookOpenIcon,
   SparklesIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline'
@@ -17,6 +18,8 @@ import type { ResultsTab } from '../../state/quizReducer'
 import { summarizeRound, RoundItem } from '../results/roundSummary'
 import { ScoreSummary } from '../results/ScoreSummary'
 import { EvalSteps } from '../results/EvalSteps'
+import { StudyGuide } from '../results/StudyGuide'
+import { NextRoundCard } from '../results/NextRoundCard'
 import { viewTransition } from './viewTransition'
 
 interface ResultsViewProps {
@@ -53,13 +56,18 @@ export const ResultsView = forwardRef<HTMLDivElement, ResultsViewProps>(function
     hasFeedback,
     resultsTab,
     mergedFeedback,
+    weakItems,
     evalPrompt,
     setActiveTab,
     handleRetryFailed,
     handlePasteFeedback,
     handleReset,
     handleStartFresh,
-    handleCopyEvalPrompt
+    handleCopyEvalPrompt,
+    handleCopyStudyPrompt,
+    roundFeedback,
+    handleCopyAdaptivePrompt,
+    handlePasteNextRound
   } = session
 
   const remainingCount = originalTotalCount - masteredCount
@@ -80,6 +88,11 @@ export const ResultsView = forwardRef<HTMLDivElement, ResultsViewProps>(function
     }
     if (needsAIEval) setActiveTab('prompt')
     detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function showFeedbackFor(number: number) {
+    setActiveTab('feedback')
+    setFocusRequest({ number })
   }
 
   function handleTabChange(key: ResultsTab) {
@@ -122,6 +135,11 @@ export const ResultsView = forwardRef<HTMLDivElement, ResultsViewProps>(function
         currentRound={currentRound}
         onSelectItem={handleSelectItem}
       />
+
+      {/* Only once the whole round is graded, so the AI sees every result */}
+      {roundFeedback.length > 0 && (!needsAIEval || !!aiFeedback) && (
+        <NextRoundCard onCopyPrompt={handleCopyAdaptivePrompt} onPasteQuestions={handlePasteNextRound} />
+      )}
 
       {/* FLIP Morphing Completed Card */}
       <motion.div
@@ -291,6 +309,29 @@ export const ResultsView = forwardRef<HTMLDivElement, ResultsViewProps>(function
                         <AIFeedbackDisplay feedback={mergedFeedback} focusRequest={focusRequest} />
                       )}
                     </div>
+                  </Tab>
+
+                  <Tab
+                    key="study"
+                    isDisabled={!hasFeedback}
+                    title={
+                      <div className="flex items-center space-x-2">
+                        <BookOpenIcon className="w-4 h-4" />
+                        <span>Study Guide</span>
+                        {weakItems.length > 0 && (
+                          <Chip size="sm" color="danger" variant="flat" className="h-5 min-w-5 px-1 text-tiny font-bold">
+                            {weakItems.length}
+                          </Chip>
+                        )}
+                      </div>
+                    }
+                  >
+                    <StudyGuide
+                      weakItems={weakItems}
+                      isAwaitingAIEval={needsAIEval && !aiFeedback}
+                      onCopyStudyPrompt={handleCopyStudyPrompt}
+                      onSelectItem={showFeedbackFor}
+                    />
                   </Tab>
                 </Tabs>
               </div>

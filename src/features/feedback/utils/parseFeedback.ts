@@ -45,6 +45,19 @@ function toQuestionNumber(value: unknown): unknown {
   return value
 }
 
+/** AI chats return lists as arrays, a single string, or omit them; always yields a clean string[]. */
+export function toStringList(value: unknown): string[] {
+  const list = Array.isArray(value) ? value : typeof value === 'string' ? [value] : []
+  return list
+    .filter((v): v is string | number => typeof v === 'string' || typeof v === 'number')
+    .map(v => String(v).trim())
+    .filter(Boolean)
+}
+
+function toText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
 /**
  * Parses the evaluation JSON pasted back from the web AI and enriches each item
  * with the user's answer and data from the original question. Returns [] when unparseable.
@@ -72,7 +85,7 @@ export function parseAIFeedback(
 
       let resolvedExpectedAnswer = item.expected_answer || item.correct_answer || ''
       let resolvedExplanations = item.explanations || {}
-      let resolvedResources = item.resources || []
+      let resolvedResources = toStringList(item.resources)
 
       if (orig) {
         if (orig.type === 'MULTIPLE_CHOICE' || ('options' in orig && Array.isArray((orig as any).options))) {
@@ -92,8 +105,8 @@ export function parseAIFeedback(
           resolvedExpectedAnswer = (orig as any).expected_answer || ''
         }
 
-        if (Array.isArray((orig as any).resources) && resolvedResources.length === 0) {
-          resolvedResources = (orig as any).resources
+        if (resolvedResources.length === 0) {
+          resolvedResources = toStringList(orig.resources)
         }
       }
 
@@ -112,7 +125,17 @@ export function parseAIFeedback(
         provided_answer: matchingAnswer?.provided_answer || item.provided_answer || '',
         expected_answer: resolvedExpectedAnswer,
         explanations: resolvedExplanations,
-        resources: resolvedResources
+        resources: resolvedResources,
+        // Learning aids from the quiz JSON; the AI's own values win when it sends them
+        key_concept: toText(item.key_concept) ?? toText(orig?.key_concept),
+        explanation: toText(item.explanation) ?? toText(orig?.explanation),
+        key_points: toStringList(item.key_points).length
+          ? toStringList(item.key_points)
+          : toStringList((orig as any)?.key_points),
+        strengths: toStringList(item.strengths),
+        missing_points: toStringList(item.missing_points),
+        misconceptions: toStringList(item.misconceptions),
+        how_to_improve: toText(item.how_to_improve)
       }
     })
   } catch (e) {

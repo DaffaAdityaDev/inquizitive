@@ -22,6 +22,7 @@ import {
 } from '../../../prompts'
 import type { QuizSession } from '../../hooks/useQuizSession'
 import { viewTransition } from './viewTransition'
+import { LearnerPanel } from '../../../learner/components/LearnerPanel'
 
 interface HomeViewProps {
   session: QuizSession
@@ -143,7 +144,11 @@ export const HomeView = forwardRef<HTMLDivElement, HomeViewProps>(function HomeV
     handlePastePromptFromClipboard,
     handleKeyPressStart,
     handleStartQuiz,
-    handleStartFresh
+    handleStartFresh,
+    learnerProfile,
+    dueConcepts,
+    handleCopyReviewPrompt,
+    handleResetLearnerHistory
   } = session
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
@@ -199,6 +204,13 @@ export const HomeView = forwardRef<HTMLDivElement, HomeViewProps>(function HomeV
           </Button>
         </motion.div>
       </div>
+
+      <LearnerPanel
+        profile={learnerProfile}
+        dueConcepts={dueConcepts}
+        onCopyReviewPrompt={handleCopyReviewPrompt}
+        onResetHistory={handleResetLearnerHistory}
+      />
 
       <div className="px-1 sm:px-4">
         <Stepper statuses={statuses} />

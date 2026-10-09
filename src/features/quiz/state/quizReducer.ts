@@ -1,10 +1,12 @@
 import {
+  Confidence,
   ErrorType,
   ParsedFeedback,
   Question,
   QuestionData,
   QuestionMastery,
   QuestionType,
+  UNKNOWN_ANSWER,
   UserAnswer
 } from '../../../shared/types'
 import { evaluateQuizAnswers } from '../utils/mcqEvaluator'
@@ -13,7 +15,7 @@ import { parseAIFeedback } from '../../feedback/utils/parseFeedback'
 import { applyFeedbackToMastery } from '../../mastery/utils/masteryUpdates'
 
 export type QuizView = 'home' | 'quiz' | 'completed'
-export type ResultsTab = 'prompt' | 'feedback'
+export type ResultsTab = 'prompt' | 'feedback' | 'study'
 
 export interface QuizSessionState {
   /** Questions of the current round (a subset of originalOutput after Retry Failed). */
@@ -23,6 +25,10 @@ export interface QuizSessionState {
   userAnswers: UserAnswer[]
   currentQuestionIndex: number
   currentAnswer: string
+  /** How sure the learner is about the current answer (optional). */
+  currentConfidence: Confidence | null
+  /** Identifies the pasted question set; attempts are recorded as sessionId:round:number. */
+  sessionId: string
   view: QuizView
   isCodeMode: boolean
   promptInput: string
@@ -41,9 +47,11 @@ export interface QuizSessionState {
 }
 
 export type QuizAction =
-  | { type: 'PROMPT_INPUT_CHANGED'; value: string; result: ParseQuestionsResult | null }
+  | { type: 'PROMPT_INPUT_CHANGED'; value: string; result: ParseQuestionsResult | null; sessionId: string }
   | { type: 'START_QUIZ' }
   | { type: 'SET_CURRENT_ANSWER'; answer: string }
+  | { type: 'SET_CONFIDENCE'; confidence: Confidence | null }
+  | { type: 'ANSWER_UNKNOWN' }
   | { type: 'NEXT_QUESTION' }
   | { type: 'PREVIOUS_QUESTION' }
   | { type: 'JUMP_TO_QUESTION'; index: number }
@@ -61,6 +69,8 @@ export function createInitialState(overrides: Partial<QuizSessionState> = {}): Q
     userAnswers: [],
     currentQuestionIndex: 0,
     currentAnswer: '',
+    currentConfidence: null,
+    sessionId: '',
     view: 'home',
     isCodeMode: false,
     promptInput: '',
@@ -77,20 +87,34 @@ export function createInitialState(overrides: Partial<QuizSessionState> = {}): Q
 }
 
 /** Action creator: parses once so callers can inspect the result (e.g. for a toast). */
+export function newSessionId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 export function promptInputChanged(value: string): Extract<QuizAction, { type: 'PROMPT_INPUT_CHANGED' }> {
   return {
     type: 'PROMPT_INPUT_CHANGED',
     value,
-    result: value.trim() ? parseQuestions(value) : null
+    result: value.trim() ? parseQuestions(value) : null,
+    sessionId: newSessionId()
   }
 }
 
-function findAnswerText(answers: UserAnswer[], question: Question | undefined): string {
-  if (!question) return ''
-  return answers.find(a => a.number === question.number)?.provided_answer || ''
+/** The saved answer text and confidence for a question, to load when navigating to it. */
+function answerFields(answers: UserAnswer[], question: Question | undefined) {
+  const answer = question ? answers.find(a => a.number === question.number) : undefined
+  return {
+    currentAnswer: answer?.provided_answer || '',
+    currentConfidence: answer?.confidence ?? null
+  }
 }
 
-function upsertAnswer(answers: UserAnswer[], question: Question, providedAnswer: string): UserAnswer[] {
+function upsertAnswer(
+  answers: UserAnswer[],
+  question: Question,
+  providedAnswer: string,
+  confidence: Confidence | null
+): UserAnswer[] {
   return [
     ...answers.filter(a => a.number !== question.number),
     {
@@ -98,7 +122,8 @@ function upsertAnswer(answers: UserAnswer[], question: Question, providedAnswer:
       question: question.question,
       provided_answer: providedAnswer,
       type: question.type,
-      questionType: question.type
+      questionType: question.type,
+      ...(confidence ? { confidence } : {})
     }
   ]
 }
@@ -109,9 +134,13 @@ function saveCurrentAnswerIfPresent(state: QuizSessionState): QuizSessionState {
   if (!question || !state.currentAnswer.trim()) return state
   return {
     ...state,
-    userAnswers: upsertAnswer(state.userAnswers, question, state.currentAnswer),
+    userAnswers: upsertAnswer(state.userAnswers, question, state.currentAnswer, state.currentConfidence),
     error: null
   }
+}
+
+function sameQuestionSet(a: QuestionData | null, b: QuestionData | null): boolean {
+  return !!a && !!b && JSON.stringify(a.questions) === JSON.stringify(b.questions)
 }
 
 export function mergeFeedbackByNumber(existing: ParsedFeedback[], updates: ParsedFeedback[]): ParsedFeedback[] {
@@ -206,11 +235,20 @@ export function quizReducer(state: QuizSessionState, action: QuizAction): QuizSe
       const base = { ...state, promptInput: action.value, error: null }
       if (!action.result) return { ...base, output: null }
       if ('error' in action.result) return { ...base, output: null, error: action.result.error }
+      // Re-parsing the same questions (e.g. editing whitespace) keeps the progress
+      if (sameQuestionSet(action.result.data, state.originalOutput)) {
+        return { ...base, output: state.output ?? action.result.data }
+      }
       // A new question set starts a fresh mastery loop
       return {
         ...base,
         output: action.result.data,
         originalOutput: action.result.data,
+        sessionId: action.sessionId,
+        userAnswers: [],
+        currentQuestionIndex: 0,
+        currentAnswer: '',
+        currentConfidence: null,
         aiFeedback: '',
         aiMasteryBase: null,
         pastAIFeedback: [],
@@ -233,7 +271,7 @@ export function quizReducer(state: QuizSessionState, action: QuizAction): QuizSe
       return {
         ...state,
         currentQuestionIndex: startIndex,
-        currentAnswer: findAnswerText(state.userAnswers, questions[startIndex]),
+        ...answerFields(state.userAnswers, questions[startIndex]),
         view: 'quiz',
         error: null
       }
@@ -241,6 +279,13 @@ export function quizReducer(state: QuizSessionState, action: QuizAction): QuizSe
 
     case 'SET_CURRENT_ANSWER':
       return { ...state, currentAnswer: action.answer }
+
+    case 'SET_CONFIDENCE':
+      return { ...state, currentConfidence: action.confidence }
+
+    case 'ANSWER_UNKNOWN':
+      if (state.view !== 'quiz') return state
+      return quizReducer({ ...state, currentAnswer: UNKNOWN_ANSWER, currentConfidence: null }, { type: 'NEXT_QUESTION' })
 
     case 'NEXT_QUESTION': {
       // A double-click or key repeat after finishing must not grade the round again
@@ -261,7 +306,7 @@ export function quizReducer(state: QuizSessionState, action: QuizAction): QuizSe
         }
       }
 
-      const userAnswers = upsertAnswer(state.userAnswers, question, state.currentAnswer)
+      const userAnswers = upsertAnswer(state.userAnswers, question, state.currentAnswer, state.currentConfidence)
 
       if (state.currentQuestionIndex < questions.length - 1) {
         const nextIndex = state.currentQuestionIndex + 1
@@ -269,7 +314,7 @@ export function quizReducer(state: QuizSessionState, action: QuizAction): QuizSe
           ...state,
           userAnswers,
           currentQuestionIndex: nextIndex,
-          currentAnswer: findAnswerText(state.userAnswers, questions[nextIndex]),
+          ...answerFields(state.userAnswers, questions[nextIndex]),
           error: null
         }
       }
@@ -282,7 +327,7 @@ export function quizReducer(state: QuizSessionState, action: QuizAction): QuizSe
           ...state,
           userAnswers,
           currentQuestionIndex: unansweredIndex,
-          currentAnswer: findAnswerText(userAnswers, unanswered),
+          ...answerFields(userAnswers, unanswered),
           error: { message: `Answer question ${unanswered.number} before finishing`, type: 'validation' }
         }
       }
@@ -297,7 +342,7 @@ export function quizReducer(state: QuizSessionState, action: QuizAction): QuizSe
       return {
         ...saved,
         currentQuestionIndex: prevIndex,
-        currentAnswer: findAnswerText(saved.userAnswers, state.output?.questions[prevIndex])
+        ...answerFields(saved.userAnswers, state.output?.questions[prevIndex])
       }
     }
 
@@ -310,7 +355,7 @@ export function quizReducer(state: QuizSessionState, action: QuizAction): QuizSe
       return {
         ...saved,
         currentQuestionIndex: action.index,
-        currentAnswer: findAnswerText(saved.userAnswers, questions[action.index]),
+        ...answerFields(saved.userAnswers, questions[action.index]),
         error: null
       }
     }
@@ -339,10 +384,11 @@ export function quizReducer(state: QuizSessionState, action: QuizAction): QuizSe
       // localFeedback is kept so earlier MCQ results stay visible in the analysis
       return {
         ...state,
-        output: { questions: plan.questions },
+        output: { ...state.originalOutput, questions: plan.questions },
         currentQuestionIndex: 0,
         userAnswers: [],
         currentAnswer: '',
+        currentConfidence: null,
         view: 'quiz',
         currentRound: state.currentRound + 1,
         aiFeedback: '',

@@ -103,7 +103,7 @@ export function parseQuestions(input: string): ParseQuestionsResult {
         continue
       }
 
-      const parsed = result.value as { questions?: unknown }
+      const parsed = result.value as { questions?: unknown; topic?: unknown }
       if (!parsed || !Array.isArray(parsed.questions)) {
         return {
           error: {
@@ -122,7 +122,8 @@ export function parseQuestions(input: string): ParseQuestionsResult {
         }
       }
 
-      return { data: { questions: normalizeQuestions(parsed.questions) } }
+      const topic = typeof parsed.topic === 'string' && parsed.topic.trim() ? parsed.topic.trim() : undefined
+      return { data: { ...(topic ? { topic } : {}), questions: normalizeQuestions(parsed.questions) } }
     }
 
     return { error: firstParseError ?? { message: 'No valid JSON structure found', type: 'format' } }

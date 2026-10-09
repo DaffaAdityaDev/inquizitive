@@ -7,6 +7,7 @@ import {
   QuestionMastery,
   MASTERY_THRESHOLD
 } from '../../../shared/types'
+import { toStringList } from '../../feedback/utils/parseFeedback'
 
 /**
  * Checks whether a provided answer matches the correct MCQ option.
@@ -59,6 +60,44 @@ export function isMCQAnswerCorrect(
   return false
 }
 
+/** The letter of the option the user picked ("B" for "B) ..."), or null if it can't be told. */
+export function optionLetter(providedAnswer: string, options: string[] = []): string | null {
+  const clean = providedAnswer.trim()
+  const prefix = clean.match(/^([A-Z])(?:[\s.)-]|$)/i)
+  if (prefix) return prefix[1].toUpperCase()
+  const index = options.findIndex(opt => opt.trim().toLowerCase() === clean.toLowerCase())
+  return index !== -1 ? String.fromCharCode(65 + index) : null
+}
+
+function explanationFor(explanations: Record<string, string> | undefined, letter: string | null): string | null {
+  if (!letter || !explanations) return null
+  const key = Object.keys(explanations).find(k => k.trim().toUpperCase().replace(/[^A-Z]/g, '') === letter)
+  const text = key ? String(explanations[key] || '').trim() : ''
+  return text || null
+}
+
+/** A correct guess scores below mastery, so the question comes back until it's actually known. */
+export const GUESSED_CORRECT_SCORE = 60
+
+function mcqEvaluation(mcq: MultipleChoiceQuestion, providedAnswer: string, isCorrect: boolean, guessed: boolean): string {
+  const correctLetter = mcq.correct_option.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || mcq.correct_option
+  const chosenLetter = optionLetter(providedAnswer, mcq.options)
+  if (isCorrect) {
+    const why = explanationFor(mcq.explanations, correctLetter)
+    if (guessed) {
+      const note = 'Correct, but you marked it as a guess, so it will come back until you know it.'
+      return why ? `${note}\n\nWhy ${correctLetter} is right: ${why}` : note
+    }
+    return why ? `Correct. ${why}` : 'Your answer is correct! Excellent work.'
+  }
+  const parts = [`Your answer${chosenLetter ? ` (${chosenLetter})` : ''} is incorrect. The correct option is ${correctLetter}.`]
+  const whyWrong = explanationFor(mcq.explanations, chosenLetter)
+  if (whyWrong) parts.push(`Why ${chosenLetter} is wrong: ${whyWrong}`)
+  const whyRight = explanationFor(mcq.explanations, correctLetter)
+  if (whyRight) parts.push(`Why ${correctLetter} is right: ${whyRight}`)
+  return parts.join('\n\n')
+}
+
 export interface EvaluationResult {
   masteryMapUpdates: Record<number, QuestionMastery>
   localFeedback: ParsedFeedback[]
@@ -106,7 +145,8 @@ export function evaluateQuizAnswers(
         correctMCQCount++
       }
 
-      const score = isCorrect ? 100 : 0
+      const guessed = isCorrect && userAnswer.confidence === 'guess'
+      const score = isCorrect ? (guessed ? GUESSED_CORRECT_SCORE : 100) : 0
       const existing = existingMasteryMap[question.number]
       const bestScore = Math.max(score, existing?.bestScore ?? 0)
       const attempts = (existing?.attempts ?? 0) + 1
@@ -142,12 +182,13 @@ export function evaluateQuizAnswers(
         expected_answer: resolvedExpected,
         correct_option: mcq.correct_option,
         options: mcq.options,
-        evaluation: isCorrect 
-          ? "Your answer is correct! Excellent work."
-          : `Your answer is incorrect. The correct option is ${mcq.correct_option}.`,
-        grade: isCorrect ? "Grade 100/100 🟢" : "Grade 0/100 🔴",
+        evaluation: mcqEvaluation(mcq, providedAnswer, isCorrect, guessed),
+        grade: guessed ? `Grade ${GUESSED_CORRECT_SCORE}/100 🟡` : isCorrect ? "Grade 100/100 🟢" : "Grade 0/100 🔴",
+        score,
         explanations: mcq.explanations || {},
-        resources: (mcq as unknown as { resources?: string[] }).resources || []
+        resources: toStringList(mcq.resources),
+        key_concept: mcq.key_concept,
+        explanation: mcq.explanation
       })
     }
   }

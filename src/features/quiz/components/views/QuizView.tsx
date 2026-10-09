@@ -25,6 +25,7 @@ import { QuestionType, MultipleChoiceQuestion } from '../../../../shared/types'
 import type { QuizSession } from '../../hooks/useQuizSession'
 import { QuizQuestion } from '../QuizQuestion'
 import { QuestionNavigator } from '../QuestionNavigator'
+import { ConfidencePicker } from '../ConfidencePicker'
 import { viewTransition } from './viewTransition'
 
 interface QuizViewProps {
@@ -45,11 +46,14 @@ export const QuizView = forwardRef<HTMLDivElement, QuizViewProps>(function QuizV
     currentQuestionIndex,
     currentQuestion,
     currentAnswer,
+    currentConfidence,
     currentRound,
     progress,
     isCodeMode,
     error,
     setCurrentAnswer,
+    setConfidence,
+    handleAnswerUnknown,
     toggleCodeMode,
     handleKeyPress,
     handleJumpToQuestion,
@@ -269,6 +273,11 @@ export const QuizView = forwardRef<HTMLDivElement, QuizViewProps>(function QuizV
                   isCodeMode={isCodeMode}
                 />
                 {error && <div className="mt-4"><ErrorDisplay error={error.message} /></div>}
+                <ConfidencePicker
+                  value={currentConfidence}
+                  onChange={setConfidence}
+                  onUnknown={handleAnswerUnknown}
+                />
               </div>
             </motion.div>
           </CardBody>

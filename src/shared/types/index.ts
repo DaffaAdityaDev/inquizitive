@@ -26,11 +26,19 @@ export type BaseQuestion = {
   number: number
   question: string
   type: QuestionType
+  /** Short name of the concept the question tests, used to group what to study next. */
+  key_concept?: string
+  /** Deeper explanation of the concept behind the answer. */
+  explanation?: string
+  /** Learning references, ideally "[Type]: [Title](url)". */
+  resources?: string[]
 }
 
 export type OpenEndedQuestion = BaseQuestion & {
   type: QuestionType.OPEN_ENDED
   expected_answer: string
+  /** The points a complete answer must cover; used for grading and for review. */
+  key_points?: string[]
 }
 
 export type MultipleChoiceQuestion = BaseQuestion & {
@@ -43,8 +51,16 @@ export type MultipleChoiceQuestion = BaseQuestion & {
 export type Question = OpenEndedQuestion | MultipleChoiceQuestion
 
 export type QuestionData = {
+  /** Topic name the AI gives the question set; feeds the learner profile. */
+  topic?: string
   questions: Question[]
 }
+
+/** How sure the learner was when answering; a correct guess is not treated as knowledge. */
+export type Confidence = 'sure' | 'unsure' | 'guess'
+
+/** Recorded as the answer when the learner skips with "I don't know". */
+export const UNKNOWN_ANSWER = "I don't know"
 
 export interface UserAnswer {
   number: number
@@ -53,6 +69,7 @@ export interface UserAnswer {
   type: QuestionType
   questionType?: QuestionType
   isCodeMode?: boolean
+  confidence?: Confidence
 }
 
 export type ErrorType = {
@@ -75,6 +92,18 @@ export interface ParsedFeedback {
   resources?: string[]
   explanations?: Record<string, string>
   isCodeQuestion?: boolean
+  key_concept?: string
+  /** Deeper explanation of the concept (from the quiz JSON). */
+  explanation?: string
+  key_points?: string[]
+  /** What the answer got right. */
+  strengths?: string[]
+  /** Key points the answer missed. */
+  missing_points?: string[]
+  /** Wrong ideas the answer revealed. */
+  misconceptions?: string[]
+  /** Concrete next step to close the gap. */
+  how_to_improve?: string
 }
 
 export interface AIFeedbackResponse {

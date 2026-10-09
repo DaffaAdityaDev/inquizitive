@@ -2,6 +2,18 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { buildQuizPrompt, getPromptOptions, PromptQuestionType, usePromptOptions } from '../../prompts'
 import { generateAIPrompt } from '../../feedback/utils/evalPrompt'
+import { buildStudyPrompt, selectWeakItems } from '../../feedback/utils/studyPrompt'
+import { resolveFeedbackScore } from '../../mastery/utils/masteryUpdates'
+import {
+  AttemptInput,
+  getLearnerProfile,
+  recordLearnerAttempts,
+  resetLearnerProfile,
+  selectDueConcepts,
+  useLearnerProfile
+} from '../../learner/learnerProfile'
+import { buildAdaptiveRoundPrompt, buildReviewPrompt, learnerContextForNewQuiz } from '../../learner/learnerPrompts'
+import { Confidence, ParsedFeedback } from '../../../shared/types'
 import { useTutorialAndModals } from './useTutorialAndModals'
 import { isImeComposing } from '../../../shared/utils/keyboard'
 import {
@@ -35,6 +47,7 @@ export function useQuizSession() {
   // Drives the home stepper's "step 1 done" state; intentionally not persisted
   const [hasCopiedPrompt, setHasCopiedPrompt] = useState(false)
   const modals = useTutorialAndModals()
+  const learnerProfile = useLearnerProfile()
 
   // Async clipboard handlers read the latest state after their await
   const stateRef = useRef(state)
@@ -56,6 +69,33 @@ export function useQuizSession() {
     [state.userAnswers, state.output]
   )
 
+  const weakItems = useMemo(() => selectWeakItems(mergedFeedback), [mergedFeedback])
+  const dueConcepts = useMemo(() => selectDueConcepts(learnerProfile), [learnerProfile])
+
+  // This round's graded items: feeds the learner profile and the adaptive next-round prompt
+  const roundFeedback = useMemo(() => {
+    const roundNumbers = new Set(state.output?.questions.map(q => q.number))
+    const answered = new Set(state.userAnswers.map(a => a.number))
+    return mergedFeedback.filter(f => roundNumbers.has(f.number) && answered.has(f.number))
+  }, [mergedFeedback, state.output, state.userAnswers])
+
+  // Every grade (local MCQ or pasted AI feedback) updates the learner profile.
+  // Attempts are keyed by session, round and question, so re-running this is harmless.
+  useEffect(() => {
+    if (state.view !== 'completed' || !state.sessionId) return
+    const confidence = new Map(state.userAnswers.map(a => [a.number, a.confidence]))
+    const topic = state.originalOutput?.topic
+    recordLearnerAttempts(roundFeedback.map((item): AttemptInput => ({
+      id: `${state.sessionId}:${state.currentRound}:${item.number}`,
+      concept: conceptOf(item),
+      topic,
+      score: resolveFeedbackScore(item),
+      confidence: confidence.get(item.number),
+      misconceptions: item.misconceptions,
+      missingPoints: item.missing_points
+    })))
+  }, [roundFeedback, state.view, state.sessionId, state.currentRound, state.userAnswers, state.originalOutput])
+
   function copyToClipboard(text: string, message: string = 'Copied to clipboard!') {
     navigator.clipboard.writeText(text)
     toast.success(message, {
@@ -66,6 +106,61 @@ export function useQuizSession() {
 
   function handleCopyEvalPrompt() {
     if (state.output) copyToClipboard(evalPrompt)
+  }
+
+  function handleCopyStudyPrompt() {
+    if (weakItems.length === 0) return
+    copyToClipboard(buildStudyPrompt(weakItems, getLearnerProfile()), 'Study prompt copied!')
+  }
+
+  function handleCopyAdaptivePrompt() {
+    if (roundFeedback.length === 0) return
+    const topic = state.originalOutput?.topic ||
+      Array.from(new Set(roundFeedback.map(conceptOf))).slice(0, 5).join(', ')
+    const confidence = Object.fromEntries(state.userAnswers.map(a => [a.number, a.confidence]))
+    const prompt = buildAdaptiveRoundPrompt(
+      topic,
+      { feedback: roundFeedback, confidence },
+      getLearnerProfile(),
+      getPromptOptions()
+    )
+    copyToClipboard(prompt, 'Next-round prompt copied!')
+  }
+
+  function handleCopyReviewPrompt() {
+    if (dueConcepts.length === 0) return
+    copyToClipboard(buildReviewPrompt(getLearnerProfile(), getPromptOptions()), 'Review prompt copied!')
+    setHasCopiedPrompt(true)
+  }
+
+  /** Loads the AI's next-round questions straight from the results page and starts them. */
+  async function handlePasteNextRound() {
+    let text: string
+    try {
+      text = await navigator.clipboard.readText()
+    } catch (err) {
+      console.error('Clipboard read error:', err)
+      toast.error('Could not read from clipboard', { duration: 2500 })
+      return
+    }
+    const action = promptInputChanged(text)
+    if (!action.result || 'error' in action.result) {
+      toast.error('No questions found', {
+        description: action.result && 'error' in action.result
+          ? action.result.error.message
+          : 'Copy the AI\'s whole reply with the new questions, then try again.',
+        duration: 3500
+      })
+      return
+    }
+    dispatch(action)
+    dispatch({ type: 'START_QUIZ' })
+    toast.success(`Next round: ${action.result.data.questions.length} new questions`, { duration: 2000 })
+  }
+
+  function handleResetLearnerHistory() {
+    resetLearnerProfile()
+    toast.success('Learning history cleared', { duration: 2000 })
   }
 
   function handlePromptInput(value: string) {
@@ -100,7 +195,12 @@ export function useQuizSession() {
     }
 
     try {
-      await navigator.clipboard.writeText(buildQuizPrompt({ ...getPromptOptions(), topic: modals.topicInput }))
+      await navigator.clipboard.writeText(buildQuizPrompt({
+        ...getPromptOptions(),
+        topic: modals.topicInput,
+        // Lets the AI target this learner's known gaps when they relate to the topic
+        learnerContext: learnerContextForNewQuiz(getLearnerProfile())
+      }))
       toast.success('Prompt copied!', {
         description: 'Paste it into a free AI chat (ChatGPT, Gemini...), then paste its JSON reply here.',
         duration: 3000,
@@ -216,6 +316,7 @@ export function useQuizSession() {
     userAnswers: state.userAnswers,
     currentQuestionIndex: state.currentQuestionIndex,
     currentAnswer: state.currentAnswer,
+    currentConfidence: state.currentConfidence,
     isCodeMode: state.isCodeMode,
     promptInput: state.promptInput,
     aiFeedback: state.aiFeedback,
@@ -235,10 +336,16 @@ export function useQuizSession() {
     hasFeedback: selectHasFeedback(state),
     resultsTab: selectResultsTab(state),
     mergedFeedback,
+    weakItems,
+    roundFeedback,
     evalPrompt,
+    learnerProfile,
+    dueConcepts,
 
     // Quiz actions
     setCurrentAnswer: (answer: string) => dispatch({ type: 'SET_CURRENT_ANSWER', answer }),
+    setConfidence: (confidence: Confidence | null) => dispatch({ type: 'SET_CONFIDENCE', confidence }),
+    handleAnswerUnknown: () => dispatch({ type: 'ANSWER_UNKNOWN' }),
     setActiveTab: (tab: ResultsTab) => dispatch({ type: 'SET_ACTIVE_TAB', tab }),
     toggleCodeMode: () => dispatch({ type: 'TOGGLE_CODE_MODE' }),
     handleStartQuiz: () => dispatch({ type: 'START_QUIZ' }),
@@ -255,6 +362,11 @@ export function useQuizSession() {
     handleStartFresh,
     copyToClipboard,
     handleCopyEvalPrompt,
+    handleCopyStudyPrompt,
+    handleCopyAdaptivePrompt,
+    handleCopyReviewPrompt,
+    handlePasteNextRound,
+    handleResetLearnerHistory,
 
     // Prompt setup and modals
     promptOptions,
@@ -275,3 +387,11 @@ export function useQuizSession() {
 }
 
 export type QuizSession = ReturnType<typeof useQuizSession>
+
+/** Concept name for the learner profile; older quizzes without key_concept fall back to the question. */
+function conceptOf(item: ParsedFeedback): string {
+  const concept = item.key_concept?.trim()
+  if (concept) return concept
+  const question = item.question.trim()
+  return question.length > 100 ? `${question.slice(0, 97)}...` : question
+}

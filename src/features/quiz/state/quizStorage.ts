@@ -1,5 +1,5 @@
-import { ParsedFeedback, QuestionData, QuestionMastery, UserAnswer } from '../../../shared/types'
-import { createInitialState, QuizSessionState, QuizView } from './quizReducer'
+import { Confidence, ParsedFeedback, QuestionData, QuestionMastery, UserAnswer } from '../../../shared/types'
+import { createInitialState, newSessionId, QuizSessionState, QuizView } from './quizReducer'
 
 export const STORAGE_KEY = 'inquizitive_session_v2'
 export const LEGACY_STORAGE_KEY = 'inquizitive_session_v1'
@@ -12,6 +12,8 @@ export interface PersistedSessionV2 {
   userAnswers: UserAnswer[]
   currentQuestionIndex: number
   currentAnswer: string
+  currentConfidence?: Confidence | null
+  sessionId?: string
   view: QuizView
   isCodeMode: boolean
   promptInput: string
@@ -68,6 +70,10 @@ function asString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+function asConfidence(value: unknown): Confidence | null {
+  return value === 'sure' || value === 'unsure' || value === 'guess' ? value : null
+}
+
 function asView(value: unknown): QuizView {
   return value === 'quiz' || value === 'completed' ? value : 'home'
 }
@@ -86,6 +92,9 @@ export function hydrateState(raw: Record<string, unknown>): QuizSessionState {
     userAnswers: asArray<UserAnswer>(raw.userAnswers),
     currentQuestionIndex: Math.min(Math.max(0, index), Math.max(0, questionCount - 1)),
     currentAnswer: asString(raw.currentAnswer),
+    currentConfidence: asConfidence(raw.currentConfidence),
+    // Sessions saved before session ids existed get one, so their attempts can still be recorded
+    sessionId: typeof raw.sessionId === 'string' ? raw.sessionId : output ? newSessionId() : '',
     view: output ? asView(raw.view) : 'home',
     isCodeMode: !!raw.isCodeMode,
     promptInput: asString(raw.promptInput),
@@ -117,6 +126,8 @@ export function toPersisted(state: QuizSessionState): PersistedSessionV2 {
     userAnswers: state.userAnswers,
     currentQuestionIndex: state.currentQuestionIndex,
     currentAnswer: state.currentAnswer,
+    currentConfidence: state.currentConfidence,
+    sessionId: state.sessionId,
     view: state.view,
     isCodeMode: state.isCodeMode,
     promptInput: state.promptInput,

@@ -506,9 +506,56 @@ describe('quizReducer: reset and reload', () => {
 
   it('loading new questions after progress starts a fresh loop', () => {
     const completed = run(loaded(), { type: 'START_QUIZ' }, answer('x'), NEXT, answer('A) yes'), NEXT)
-    const reloaded = run(completed, promptInputChanged(MIXED_JSON))
+    const reloaded = run(completed, promptInputChanged(MIXED_JSON.replace('Explain X', 'Explain Y')))
     expect(reloaded.masteryMap).toEqual({})
     expect(reloaded.localFeedback).toEqual([])
+    expect(reloaded.userAnswers).toEqual([])
     expect(reloaded.currentRound).toBe(1)
+    expect(reloaded.sessionId).not.toBe(completed.sessionId)
+  })
+
+  it('re-parsing the same questions (e.g. an edit to whitespace) keeps the progress', () => {
+    const completed = run(loaded(), { type: 'START_QUIZ' }, answer('x'), NEXT, answer('A) yes'), NEXT)
+    const reparsed = run(completed, promptInputChanged(`${MIXED_JSON}\n`))
+    expect(reparsed.masteryMap).toEqual(completed.masteryMap)
+    expect(reparsed.userAnswers).toEqual(completed.userAnswers)
+    expect(reparsed.sessionId).toBe(completed.sessionId)
+  })
+})
+
+describe('quizReducer: confidence and unknown answers', () => {
+  it('stores confidence with the answer and restores it when navigating back', () => {
+    const state = run(
+      loaded(),
+      { type: 'START_QUIZ' },
+      answer('x'),
+      { type: 'SET_CONFIDENCE', confidence: 'unsure' },
+      NEXT
+    )
+    expect(state.userAnswers[0].confidence).toBe('unsure')
+    expect(state.currentConfidence).toBeNull()
+    const back = run(state, { type: 'PREVIOUS_QUESTION' })
+    expect(back.currentConfidence).toBe('unsure')
+  })
+
+  it('a correct guess is graded below mastery', () => {
+    const state = run(
+      loaded(),
+      { type: 'START_QUIZ' },
+      answer('x'),
+      NEXT,
+      answer('A) yes'),
+      { type: 'SET_CONFIDENCE', confidence: 'guess' },
+      NEXT
+    )
+    expect(state.view).toBe('completed')
+    expect(state.masteryMap[2].isMastered).toBe(false)
+    expect(state.localFeedback[0].grade).toContain('60/100')
+  })
+
+  it('"I don\'t know" records the answer and moves on', () => {
+    const state = run(loaded(), { type: 'START_QUIZ' }, { type: 'ANSWER_UNKNOWN' })
+    expect(state.userAnswers[0].provided_answer).toBe("I don't know")
+    expect(state.currentQuestionIndex).toBe(1)
   })
 })

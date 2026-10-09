@@ -7,8 +7,9 @@ import { tactileTap } from "../animations/animeUtils"
 export function Navbar() {
   const { theme, setTheme } = useTheme()
 
-  const handleThemeToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
-    tactileTap(e.currentTarget)
+  // NextUI's Button types onClick with its own FocusableElement event
+  const handleThemeToggle = (e: React.MouseEvent<Element>) => {
+    tactileTap(e.currentTarget instanceof HTMLElement ? e.currentTarget : null)
     setTheme(theme === 'dark' ? 'light' : 'dark')
   }
 
